@@ -1,0 +1,56 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Camada de Computação
+
+Parameters:
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+
+Resources:
+
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Acesso SSH e HTTP
+      VpcId: !ImportValue VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+
+  PublicInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t3.small
+      KeyName: !Ref KeyName
+      SubnetId: !ImportValue PublicSubnetId
+      SecurityGroupIds:
+        - !Ref SecurityGroup
+      ImageId: ami-0fc5d935ebf8bc3bc
+      Tags:
+        - Key: Name
+          Value: arq-infra-ec2-public
+
+  PrivateInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t3.small
+      KeyName: !Ref KeyName
+      SubnetId: !ImportValue PrivateSubnetId
+      SecurityGroupIds:
+        - !Ref SecurityGroup
+      ImageId: ami-0fc5d935ebf8bc3bc
+      Tags:
+        - Key: Name
+          Value: arq-infra-ec2-private
+
+Outputs:
+  PublicInstanceId:
+    Value: !Ref PublicInstance
+
+  PrivateInstanceId:
+    Value: !Ref PrivateInstance

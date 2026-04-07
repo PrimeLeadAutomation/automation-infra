@@ -1,0 +1,29 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Camada de Armazenamento (Data Lake)
+
+Resources:
+
+  BronzeBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub arq-infra-bronze
+
+  SilverBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub arq-infra-silver
+
+  GoldBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub arq-infra-gold
+
+Outputs:
+  BronzeBucketName:
+    Value: !Ref BronzeBucket
+
+  SilverBucketName:
+    Value: !Ref SilverBucket
+
+  GoldBucketName:
+    Value: !Ref GoldBucket
