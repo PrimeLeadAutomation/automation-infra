@@ -6,17 +6,38 @@ Resources:
   BronzeBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub arq-infra-bronze
+      BucketName: !Sub arq-infra-bronze-${AWS::AccountId}
+      VersioningConfiguration:
+        Status: Enabled
 
   SilverBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub arq-infra-silver
+      BucketName: !Sub arq-infra-silver-${AWS::AccountId}
+      VersioningConfiguration:
+        Status: Enabled
 
   GoldBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub arq-infra-gold
+      BucketName: !Sub arq-infra-gold-${AWS::AccountId}
+      VersioningConfiguration:
+        Status: Enabled
+
+  GlueDatabase:
+    Type: AWS::Glue::Database
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseInput:
+        Name: arq_infra_db
+
+  AthenaWorkGroup:
+    Type: AWS::Athena::WorkGroup
+    Properties:
+      Name: arq-infra-workgroup
+      WorkGroupConfiguration:
+        ResultConfiguration:
+          OutputLocation: !Sub s3://arq-infra-gold-${AWS::AccountId}/athena-results/
 
 Outputs:
   BronzeBucketName:

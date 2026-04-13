@@ -1,0 +1,13 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Camada de Mensageria
+
+Resources:
+
+  AlertTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: arq-infra-alerts
+
+Outputs:
+  TopicArn:
+    Value: !Ref AlertTopic
