@@ -4,6 +4,15 @@ Description: Camada de Computação
 Parameters:
   KeyName:
     Type: AWS::EC2::KeyPair::KeyName
+  # AMI atual da região (evita ID fixo errado para outra SO/região).
+  LatestAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+  # Ambientes de lab exigem um instance profile pré-existente (LabRole).
+  Ec2InstanceProfileName:
+    Type: String
+    Default: LabInstanceProfile
+    Description: Nome do instance profile já existente.
 
 Resources:
 
@@ -32,24 +41,37 @@ Resources:
       InstanceType: t3.small
       KeyName: !Ref KeyName
       SubnetId: !ImportValue PublicSubnetId
+      IamInstanceProfile: !Ref Ec2InstanceProfileName
       SecurityGroupIds:
         - !Ref SecurityGroup
-      ImageId: ami-0fc5d935ebf8bc3bc
+      ImageId: !Ref LatestAmiId
       Tags:
         - Key: Name
           Value: arq-infra-ec2-public
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
-          yum update -y
-          yum install -y docker
+          set -euxo pipefail
+          exec > >(tee /var/log/userdata-grafana.log) 2>&1
+          dnf update -y
+          dnf install -y docker
+          systemctl enable --now docker
+          usermod -aG docker ec2-user || true
+          docker run -d --name grafana --restart unless-stopped -p 3000:3000 grafana/grafana
 
-          systemctl start docker
-          systemctl enable docker
+  GrafanaElasticIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: arq-infra-eip-grafana
 
-          usermod -aG docker ec2-user
-
-          docker run -d -p 3000:3000 grafana/grafana
+  GrafanaEipAssociation:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: !GetAtt GrafanaElasticIP.AllocationId
+      InstanceId: !Ref PublicInstance
 
   PrivateInstance:
     Type: AWS::EC2::Instance
@@ -59,7 +81,7 @@ Resources:
       SubnetId: !ImportValue PrivateSubnetId
       SecurityGroupIds:
         - !Ref SecurityGroup
-      ImageId: ami-0fc5d935ebf8bc3bc
+      ImageId: !Ref LatestAmiId
       Tags:
         - Key: Name
           Value: arq-infra-ec2-private
@@ -67,6 +89,10 @@ Resources:
 Outputs:
   PublicInstanceId:
     Value: !Ref PublicInstance
+
+  GrafanaPublicIp:
+    Description: IP público fixo (Elastic IP) — Grafana em http://<IP>:3000
+    Value: !Ref GrafanaElasticIP
 
   PrivateInstanceId:
     Value: !Ref PrivateInstance

@@ -37,7 +37,7 @@ Resources:
       Name: arq-infra-workgroup
       WorkGroupConfiguration:
         ResultConfiguration:
-          OutputLocation: !Sub s3://arq-infra-gold-${AWS::AccountId}/athena-results/
+          OutputLocation: !Join ['', ['s3://', !Ref GoldBucket, '/athena-results/']]
 
 Outputs:
   BronzeBucketName:
