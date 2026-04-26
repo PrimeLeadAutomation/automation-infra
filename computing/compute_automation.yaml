@@ -86,6 +86,86 @@ Resources:
         - Key: Name
           Value: arq-infra-ec2-private
 
+# Lambda para transformar Bronze -> Silver
+  TransformToSilverFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: transform-to-silver
+      Handler: index.handler
+      Role: arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Runtime: python3.12
+      Timeout: 60
+      Code:
+        ZipFile: |
+          import json
+          def handler(event, context):
+              print("Evento recebido:", json.dumps(event))
+              # TODO: lógica de transformação Bronze -> Silver
+              return {"statusCode": 200}
+
+
+  TransformToSilverPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt TransformToSilverFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceArn: !Sub arn:aws:s3:::arq-infra-bronze-${AWS::AccountId}
+
+  TransformToSilverS3Event:
+    Type: AWS::S3::BucketNotification
+    Properties:
+      Bucket: !Sub arq-infra-bronze-${AWS::AccountId}
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: to-process/
+            Function: !GetAtt TransformToSilverFunction.Arn
+
+# Lambda para transformar Silver -> Gold
+  TransformToGoldFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: transform-to-gold
+      Handler: index.handler
+      Role: arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Runtime: python3.12
+      Timeout: 60
+      Code:
+        ZipFile: |
+          import json
+          def handler(event, context):
+              print("Evento recebido:", json.dumps(event))
+              # TODO: lógica de transformação Silver -> Gold
+              return {"statusCode": 200}
+
+
+  TransformToGoldPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt TransformToGoldFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceArn: !Sub arn:aws:s3:::arq-infra-silver-${AWS::AccountId}
+
+  TransformToGoldS3Event:
+    Type: AWS::S3::BucketNotification
+    Properties:
+      Bucket: !Sub arq-infra-silver-${AWS::AccountId}
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: to-process/
+            Function: !GetAtt TransformToGoldFunction.Arn
+
 Outputs:
   PublicInstanceId:
     Value: !Ref PublicInstance
