@@ -4,11 +4,9 @@ Description: Camada de Computação
 Parameters:
   KeyName:
     Type: AWS::EC2::KeyPair::KeyName
-  # AMI atual da região (evita ID fixo errado para outra SO/região).
   LatestAmiId:
     Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
     Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
-  # Ambientes de lab exigem um instance profile pré-existente (LabRole).
   Ec2InstanceProfileName:
     Type: String
     Default: LabInstanceProfile
@@ -86,13 +84,12 @@ Resources:
         - Key: Name
           Value: arq-infra-ec2-private
 
-# Lambda para transformar Bronze -> Silver
   TransformToSilverFunction:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: transform-to-silver
       Handler: index.handler
-      Role: arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
       Runtime: python3.12
       Timeout: 60
       Code:
@@ -112,27 +109,13 @@ Resources:
       Principal: s3.amazonaws.com
       SourceArn: !Sub arn:aws:s3:::arq-infra-bronze-${AWS::AccountId}
 
-  TransformToSilverS3Event:
-    Type: AWS::S3::BucketNotification
-    Properties:
-      Bucket: !Sub arq-infra-bronze-${AWS::AccountId}
-      NotificationConfiguration:
-        LambdaConfigurations:
-          - Event: s3:ObjectCreated:*
-            Filter:
-              S3Key:
-                Rules:
-                  - Name: prefix
-                    Value: to-process/
-            Function: !GetAtt TransformToSilverFunction.Arn
 
-# Lambda para transformar Silver -> Gold
   TransformToGoldFunction:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: transform-to-gold
       Handler: index.handler
-      Role: arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
       Runtime: python3.12
       Timeout: 60
       Code:
@@ -152,19 +135,6 @@ Resources:
       Principal: s3.amazonaws.com
       SourceArn: !Sub arn:aws:s3:::arq-infra-silver-${AWS::AccountId}
 
-  TransformToGoldS3Event:
-    Type: AWS::S3::BucketNotification
-    Properties:
-      Bucket: !Sub arq-infra-silver-${AWS::AccountId}
-      NotificationConfiguration:
-        LambdaConfigurations:
-          - Event: s3:ObjectCreated:*
-            Filter:
-              S3Key:
-                Rules:
-                  - Name: prefix
-                    Value: to-process/
-            Function: !GetAtt TransformToGoldFunction.Arn
 
 Outputs:
   PublicInstanceId:
@@ -176,3 +146,15 @@ Outputs:
 
   PrivateInstanceId:
     Value: !Ref PrivateInstance
+
+  TransformToSilverArn:
+    Description: ARN da função Lambda transform-to-silver para cross-stack
+    Value: !GetAtt TransformToSilverFunction.Arn
+    Export:
+      Name: pilha-computacao-transform-to-silver-arn
+
+  TransformToGoldArn:
+    Description: ARN da função Lambda transform-to-gold para cross-stack
+    Value: !GetAtt TransformToGoldFunction.Arn
+    Export:
+      Name: pilha-computacao-transform-to-gold-arn
