@@ -4,10 +4,10 @@ Description: Camada de Computação
 Parameters:
   KeyName:
     Type: AWS::EC2::KeyPair::KeyName
-  # AMI atual da região (evita ID fixo errado para outra SO/região).
+  # AMI Ubuntu 24.04 LTS da região (Canonical via SSM — amd64, hvm, gp3).
   LatestAmiId:
     Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
-    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+    Default: /aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id
   # Ambientes de lab exigem um instance profile pré-existente (LabRole).
   Ec2InstanceProfileName:
     Type: String
@@ -53,11 +53,12 @@ Resources:
           #!/bin/bash
           set -euxo pipefail
           exec > >(tee /var/log/userdata-grafana.log) 2>&1
-          dnf update -y
-          dnf install -y docker
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update -y
+          apt-get install -y docker.io
           systemctl enable --now docker
-          usermod -aG docker ec2-user || true
-          docker run -d --name grafana --restart unless-stopped -p 3000:3000 grafana/grafana
+          usermod -aG docker ubuntu || true
+          docker run -d --name grafana --restart unless-stopped -p 3000:3000 grafana/grafana:12.4.3
 
   GrafanaElasticIP:
     Type: AWS::EC2::EIP
