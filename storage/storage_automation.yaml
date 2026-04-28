@@ -9,6 +9,15 @@ Resources:
       BucketName: !Sub arq-infra-bronze-${AWS::AccountId}
       VersioningConfiguration:
         Status: Enabled
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: to-process/
+            Function: !ImportValue pilha-computacao-transform-to-silver-arn
 
   SilverBucket:
     Type: AWS::S3::Bucket
@@ -16,6 +25,15 @@ Resources:
       BucketName: !Sub arq-infra-silver-${AWS::AccountId}
       VersioningConfiguration:
         Status: Enabled
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: to-process/
+            Function: !ImportValue pilha-computacao-transform-to-gold-arn
 
   GoldBucket:
     Type: AWS::S3::Bucket

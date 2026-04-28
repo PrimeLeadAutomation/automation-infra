@@ -87,6 +87,58 @@ Resources:
         - Key: Name
           Value: arq-infra-ec2-private
 
+  TransformToSilverFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: transform-to-silver
+      Handler: index.handler
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Runtime: python3.12
+      Timeout: 60
+      Code:
+        ZipFile: |
+          import json
+          def handler(event, context):
+              print("Evento recebido:", json.dumps(event))
+              # TODO: lógica de transformação Bronze -> Silver
+              return {"statusCode": 200}
+
+
+  TransformToSilverPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt TransformToSilverFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceArn: !Sub arn:aws:s3:::arq-infra-bronze-${AWS::AccountId}
+
+
+  TransformToGoldFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: transform-to-gold
+      Handler: index.handler
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Runtime: python3.12
+      Timeout: 60
+      Code:
+        ZipFile: |
+          import json
+          def handler(event, context):
+              print("Evento recebido:", json.dumps(event))
+              # TODO: lógica de transformação Silver -> Gold
+              return {"statusCode": 200}
+
+
+  TransformToGoldPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt TransformToGoldFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceArn: !Sub arn:aws:s3:::arq-infra-silver-${AWS::AccountId}
+
+
 Outputs:
   PublicInstanceId:
     Value: !Ref PublicInstance
@@ -97,3 +149,15 @@ Outputs:
 
   PrivateInstanceId:
     Value: !Ref PrivateInstance
+
+  TransformToSilverArn:
+    Description: ARN da função Lambda transform-to-silver para cross-stack
+    Value: !GetAtt TransformToSilverFunction.Arn
+    Export:
+      Name: pilha-computacao-transform-to-silver-arn
+
+  TransformToGoldArn:
+    Description: ARN da função Lambda transform-to-gold para cross-stack
+    Value: !GetAtt TransformToGoldFunction.Arn
+    Export:
+      Name: pilha-computacao-transform-to-gold-arn

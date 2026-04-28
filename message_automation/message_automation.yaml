@@ -8,6 +8,13 @@ Resources:
     Properties:
       TopicName: arq-infra-alerts
 
+  AlertTopicEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref AlertTopic
+      Protocol: email
+      Endpoint: seu-email@exemplo.com  # Substitua pelo e-mail desejado
+
 Outputs:
   TopicArn:
     Value: !Ref AlertTopic
