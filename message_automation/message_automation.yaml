@@ -13,8 +13,11 @@ Resources:
     Properties:
       TopicArn: !Ref AlertTopic
       Protocol: email
-      Endpoint: seu-email@exemplo.com  # Substitua pelo e-mail desejado
+      Endpoint: primeleadautomation@outlook.com  # Email do projeto
 
 Outputs:
   TopicArn:
+    Description: ARN do tópico de alertas/ETL (Lambdas fazem sns:Publish)
     Value: !Ref AlertTopic
+    Export:
+      Name: arq-infra-alert-topic-arn

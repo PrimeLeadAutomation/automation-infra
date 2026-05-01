@@ -95,9 +95,25 @@ Resources:
       Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
       Runtime: python3.12
       Timeout: 60
+      Environment:
+        Variables:
+          SNS_TOPIC_ARN: !ImportValue arq-infra-alert-topic-arn
+          ETL_STEP: Bronze→Silver
       Code:
         ZipFile: |
           import json
+          import os
+          import boto3
+          sns = boto3.client("sns")
+          def notify_success(summary):
+              arn = os.environ.get("SNS_TOPIC_ARN")
+              step = os.environ.get("ETL_STEP", "ETL")
+              if arn:
+                  sns.publish(
+                      TopicArn=arn,
+                      Subject="ETL concluída com sucesso: " + step,
+                      Message=json.dumps(summary, indent=2, default=str),
+                  )
           def handler(event, context):
               print("Evento recebido:", json.dumps(event))
               # TODO: lógica de transformação Bronze -> Silver
@@ -121,9 +137,25 @@ Resources:
       Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
       Runtime: python3.12
       Timeout: 60
+      Environment:
+        Variables:
+          SNS_TOPIC_ARN: !ImportValue arq-infra-alert-topic-arn
+          ETL_STEP: Silver→Gold
       Code:
         ZipFile: |
           import json
+          import os
+          import boto3
+          sns = boto3.client("sns")
+          def notify_success(summary):
+              arn = os.environ.get("SNS_TOPIC_ARN")
+              step = os.environ.get("ETL_STEP", "ETL")
+              if arn:
+                  sns.publish(
+                      TopicArn=arn,
+                      Subject="ETL concluída com sucesso: " + step,
+                      Message=json.dumps(summary, indent=2, default=str),
+                  )
           def handler(event, context):
               print("Evento recebido:", json.dumps(event))
               # TODO: lógica de transformação Silver -> Gold

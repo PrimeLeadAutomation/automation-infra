@@ -52,7 +52,8 @@ Resources:
   AthenaWorkGroup:
     Type: AWS::Athena::WorkGroup
     Properties:
-      Name: arq-infra-workgroup
+      # Nome global na conta — sufixo evita AlreadyExists 
+      Name: !Sub arq-infra-wg-${AWS::AccountId}
       WorkGroupConfiguration:
         ResultConfiguration:
           OutputLocation: !Join ['', ['s3://', !Ref GoldBucket, '/athena-results/']]
