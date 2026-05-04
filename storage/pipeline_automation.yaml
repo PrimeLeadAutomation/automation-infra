@@ -1,0 +1,168 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Camada de Armazenamento (Data Lake)
+
+Resources:
+
+  BronzeBucket:
+    Type: AWS::S3::Bucket
+    DependsOn: TransformToSilverPermission
+    Properties:
+      BucketName: primelead-bkt-bronze
+      VersioningConfiguration:
+        Status: Enabled
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: to-process/
+            Function: !GetAtt TransformToSilverFunction.Arn
+
+  SilverBucket:
+    Type: AWS::S3::Bucket
+    DependsOn: TransformToGoldPermission
+    Properties:
+      BucketName: primelead-bkt-prata
+      VersioningConfiguration:
+        Status: Enabled
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: to-process/
+            Function: !GetAtt TransformToGoldFunction.Arn
+
+  GoldBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: primelead-bkt-gold
+      VersioningConfiguration:
+        Status: Enabled
+
+  GlueDatabase:
+    Type: AWS::Glue::Database
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseInput:
+        Name: arq_infra_db
+
+  AthenaWorkGroup:
+    Type: AWS::Athena::WorkGroup
+    Properties:
+      # Nome global na conta — sufixo evita AlreadyExists 
+      Name: !Sub arq-infra-wg-${AWS::AccountId}
+      WorkGroupConfiguration:
+        ResultConfiguration:
+          OutputLocation: !Join ['', ['s3://', !Ref GoldBucket, '/athena-results/']]
+
+  TransformToSilverFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: transform-to-silver
+      Handler: index.handler
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Runtime: python3.12
+      Timeout: 60
+      Environment:
+        Variables:
+          SNS_TOPIC_ARN: !ImportValue arq-infra-alert-topic-arn
+          ETL_STEP: Bronze→Silver
+          BUCKET_BRONZE: !Ref BronzeBucket
+          BUCKET_SILVER: !Ref SilverBucket
+          LAMBDA_GOLD: lambda-brasilapi-gold-merger
+      Code:
+        ZipFile: |
+          import json
+          import os
+          import boto3
+          sns = boto3.client("sns")
+          def notify_success(summary):
+              arn = os.environ.get("SNS_TOPIC_ARN")
+              step = os.environ.get("ETL_STEP", "ETL")
+              if arn:
+                  sns.publish(
+                      TopicArn=arn,
+                      Subject="ETL concluída com sucesso: " + step,
+                      Message=json.dumps(summary, indent=2, default=str),
+                  )
+          def handler(event, context):
+              print("Evento recebido:", json.dumps(event))
+              # TODO: lógica de transformação Bronze -> Silver, implementada no lambda prata/process-bronze.py
+              return {"statusCode": 200}
+
+  TransformToSilverPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt TransformToSilverFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceArn: arn:aws:s3:::primelead-bkt-bronze
+
+  TransformToGoldFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: lambda-brasilapi-gold-merger
+      Handler: index.handler
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Runtime: python3.12
+      Timeout: 60
+      Environment:
+        Variables:
+          SNS_TOPIC_ARN: !ImportValue arq-infra-alert-topic-arn
+          ETL_STEP: Silver→Gold
+          BUCKET_SILVER: !Ref SilverBucket
+          BUCKET_GOLD: !Ref GoldBucket
+      Code:
+        ZipFile: |
+          import json
+          import os
+          import boto3
+          sns = boto3.client("sns")
+          def notify_success(summary):
+              arn = os.environ.get("SNS_TOPIC_ARN")
+              step = os.environ.get("ETL_STEP", "ETL")
+              if arn:
+                  sns.publish(
+                      TopicArn=arn,
+                      Subject="ETL concluída com sucesso: " + step,
+                      Message=json.dumps(summary, indent=2, default=str),
+                  )
+          def handler(event, context):
+              print("Evento recebido:", json.dumps(event))
+              # TODO: lógica de transformação Silver -> Gold, implementada no lambda gold/concat-gold.py
+              return {"statusCode": 200}
+
+  TransformToGoldPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt TransformToGoldFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceArn: arn:aws:s3:::primelead-bkt-prata
+
+Outputs:
+  BronzeBucketName:
+    Value: !Ref BronzeBucket
+
+  SilverBucketName:
+    Value: !Ref SilverBucket
+
+  GoldBucketName:
+    Value: !Ref GoldBucket
+
+  TransformToSilverArn:
+    Description: ARN da função Lambda transform-to-silver para cross-stack
+    Value: !GetAtt TransformToSilverFunction.Arn
+    Export:
+      Name: pilha-armazenamento-transform-to-silver-arn
+
+  TransformToGoldArn:
+    Description: ARN da função Lambda transform-to-gold para cross-stack
+    Value: !GetAtt TransformToGoldFunction.Arn
+    Export:
+      Name: pilha-armazenamento-transform-to-gold-arn
