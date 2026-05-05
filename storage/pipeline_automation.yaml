@@ -72,8 +72,8 @@ Resources:
         Variables:
           SNS_TOPIC_ARN: !ImportValue arq-infra-alert-topic-arn
           ETL_STEP: Bronze→Silver
-          BUCKET_BRONZE: !Ref BronzeBucket
-          BUCKET_SILVER: !Ref SilverBucket
+          BUCKET_BRONZE: primelead-bkt-bronze
+          BUCKET_SILVER: primelead-bkt-prata
           LAMBDA_GOLD: lambda-brasilapi-gold-merger
       Code:
         ZipFile: |
@@ -115,8 +115,8 @@ Resources:
         Variables:
           SNS_TOPIC_ARN: !ImportValue arq-infra-alert-topic-arn
           ETL_STEP: Silver→Gold
-          BUCKET_SILVER: !Ref SilverBucket
-          BUCKET_GOLD: !Ref GoldBucket
+          BUCKET_SILVER: primelead-bkt-prata
+          BUCKET_GOLD: primelead-bkt-gold
       Code:
         ZipFile: |
           import json
