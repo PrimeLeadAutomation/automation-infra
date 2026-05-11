@@ -1,0 +1,876 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_ATHENA",
+      "label": "Amazon Athena (Glue / final_output)",
+      "description": "Datasource Amazon Athena (plugin grafana-athena-datasource). Database Glue usado nas queries: arq_infra_db (variável ATHENA_DB no painel).",
+      "type": "datasource",
+      "pluginId": "grafana-athena-datasource",
+      "pluginName": "Amazon Athena"
+    }
+  ],
+  "__elements": {},
+  "__requires": [
+    {
+      "type": "grafana",
+      "id": "grafana",
+      "name": "Grafana",
+      "version": "10.0.0"
+    },
+    {
+      "type": "panel",
+      "id": "barchart",
+      "name": "Bar chart",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "gauge",
+      "name": "Gauge",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "piechart",
+      "name": "Pie chart",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "stat",
+      "name": "Stat",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "table",
+      "name": "Table",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "text",
+      "name": "Text",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "timeseries",
+      "name": "Time series",
+      "version": ""
+    },
+    {
+      "type": "datasource",
+      "id": "grafana-athena-datasource",
+      "name": "Amazon Athena",
+      "version": "1.0.0"
+    }
+  ],
+  "annotations": {
+    "list": []
+  },
+  "description": "Persona diretoria executiva: escala da base, saúde cadastral, exposição CEIS/CNEP, empresas maduras, foto macro geografica/porte e capital social medio por UF.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 100,
+      "panels": [],
+      "title": "Visão geral da base",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "${DS_ATHENA}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 1
+      },
+      "id": 1,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "${DS_ATHENA}"
+          },
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "${ATHENA_DB}",
+            "region": "__default"
+          },
+          "format": 1,
+          "refId": "A",
+          "rawSQL": "SELECT CAST(COUNT(*) AS BIGINT) AS \"Empresas na base\" FROM final_output"
+        }
+      ],
+      "title": "Volume total (proxy: empresas na base)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "${DS_ATHENA}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 40
+              },
+              {
+                "color": "red",
+                "value": 70
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 1
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "${DS_ATHENA}"
+          },
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "${ATHENA_DB}",
+            "region": "__default"
+          },
+          "format": 1,
+          "refId": "A",
+          "rawSQL": "SELECT 100.0 * SUM(CASE WHEN UPPER(TRIM(status)) = 'ATIVA' THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0) AS \"% cadastro ATIVA\" FROM final_output"
+        }
+      ],
+      "title": "% situação cadastral ATIVA",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "${DS_ATHENA}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 2
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 1
+      },
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "${DS_ATHENA}"
+          },
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "${ATHENA_DB}",
+            "region": "__default"
+          },
+          "format": 1,
+          "refId": "A",
+          "rawSQL": "SELECT 100.0 * SUM(CASE WHEN ((LOWER(TRIM(CAST(ceis_sancionado AS VARCHAR))) = 'true') OR (LOWER(TRIM(CAST(cnep_sancionado AS VARCHAR))) = 'true')) AND UPPER(TRIM(status)) = 'ATIVA' THEN 1 ELSE 0 END) / NULLIF(SUM(CASE WHEN UPPER(TRIM(status)) = 'ATIVA' THEN 1 ELSE 0 END), 0) AS \"% com CEIS ou CNEP (ATIVAS)\" FROM final_output"
+        }
+      ],
+      "title": "% com restrição CEIS ou CNEP (só ATIVAS)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "${DS_ATHENA}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "purple",
+                "value": null
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 1
+      },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "${DS_ATHENA}"
+          },
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "${ATHENA_DB}",
+            "region": "__default"
+          },
+          "format": 1,
+          "refId": "A",
+          "rawSQL": "WITH x AS (\n  SELECT status,\n    COALESCE(\n      TRY_CAST(TRIM(CAST(data_inicio_atividade AS VARCHAR)) AS DATE),\n      try(date_parse(nullif(TRIM(CAST(data_inicio_atividade AS VARCHAR)), ''), '%Y-%m-%d')),\n      try(date_parse(nullif(TRIM(CAST(data_inicio_atividade AS VARCHAR)), ''), '%d/%m/%Y'))\n    ) AS di\n  FROM final_output\n)\nSELECT 100.0 * SUM(CASE WHEN UPPER(TRIM(status)) = 'ATIVA' AND di IS NOT NULL AND di <= current_date - INTERVAL '5' YEAR THEN 1 ELSE 0 END) / NULLIF(SUM(CASE WHEN UPPER(TRIM(status)) = 'ATIVA' THEN 1 ELSE 0 END), 0) AS \"% empresas maduras (≥5a, ATIVAS)\" FROM x"
+        }
+      ],
+      "title": "% empresas maduras (PDF: ≥5 anos, ATIVAS)",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
+      "id": 101,
+      "panels": [],
+      "title": "Geografia e porte",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "${DS_ATHENA}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "hue",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 14,
+        "x": 0,
+        "y": 6
+      },
+      "id": 5,
+      "options": {
+        "barRadius": 0.08,
+        "barWidth": 0.85,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "horizontal",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "xField": "uf",
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "${DS_ATHENA}"
+          },
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "${ATHENA_DB}",
+            "region": "__default"
+          },
+          "format": 1,
+          "refId": "A",
+          "rawSQL": "SELECT COALESCE(NULLIF(TRIM(uf), ''), '(sem UF)') AS uf, CAST(COUNT(*) AS BIGINT) AS empresas FROM final_output GROUP BY 1 ORDER BY empresas DESC LIMIT 27"
+        }
+      ],
+      "title": "Distribuição por UF",
+      "transformations": [
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "field": "empresas",
+                "desc": true
+              }
+            ]
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "${DS_ATHENA}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 10,
+        "x": 14,
+        "y": 6
+      },
+      "id": 6,
+      "options": {
+        "displayLabels": [
+          "name",
+          "percent"
+        ],
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "values": [
+            "value"
+          ]
+        },
+        "pieType": "donut",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "${DS_ATHENA}"
+          },
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "${ATHENA_DB}",
+            "region": "__default"
+          },
+          "format": 1,
+          "refId": "A",
+          "rawSQL": "SELECT COALESCE(NULLIF(TRIM(porte), ''), '(sem porte)') AS porte, CAST(COUNT(*) AS BIGINT) AS qtd FROM final_output GROUP BY 1 ORDER BY qtd DESC"
+        }
+      ],
+      "title": "Distribuição por porte",
+      "type": "piechart"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 15
+      },
+      "id": 153,
+      "panels": [],
+      "title": "Capital social regional",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "${DS_ATHENA}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-GrYlRd"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "scheme",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "decimals": 0,
+          "mappings": [],
+          "unit": "currencyBRL"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "id": 9,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.9,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "orientation": "horizontal",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "xField": "uf",
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "${DS_ATHENA}"
+          },
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "${ATHENA_DB}",
+            "region": "__default"
+          },
+          "format": 1,
+          "refId": "A",
+          "rawSQL": "SELECT uf, AVG(TRY_CAST(TRIM(CAST(capital_social AS VARCHAR)) AS DOUBLE)) AS media_capital_brl FROM final_output WHERE UPPER(TRIM(status)) = 'ATIVA' AND TRY_CAST(TRIM(CAST(capital_social AS VARCHAR)) AS DOUBLE) > 0 AND NULLIF(TRIM(uf), '') IS NOT NULL GROUP BY uf ORDER BY media_capital_brl DESC NULLS LAST LIMIT 27"
+        }
+      ],
+      "title": "Média de capital social por UF (PDF: ATIVA, capital > 0)",
+      "type": "barchart"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 26
+      },
+      "id": 104,
+      "panels": [],
+      "title": "Exposição a listas restritivas (CEIS/CNEP)",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "${DS_ATHENA}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 2,
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 3
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 27
+      },
+      "id": 11,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "${DS_ATHENA}"
+          },
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "${ATHENA_DB}",
+            "region": "__default"
+          },
+          "format": 1,
+          "refId": "A",
+          "rawSQL": "SELECT 100.0 * SUM(CASE WHEN (LOWER(TRIM(CAST(ceis_sancionado AS VARCHAR))) = 'true') AND UPPER(TRIM(status)) = 'ATIVA' THEN 1 ELSE 0 END) / NULLIF(SUM(CASE WHEN UPPER(TRIM(status)) = 'ATIVA' THEN 1 ELSE 0 END), 0) AS \"CEIS %\" FROM final_output"
+        }
+      ],
+      "title": "Gauge: % CEIS (cadastro ATIVA)",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "${DS_ATHENA}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 2,
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 3
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 27
+      },
+      "id": 12,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "${DS_ATHENA}"
+          },
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "${ATHENA_DB}",
+            "region": "__default"
+          },
+          "format": 1,
+          "refId": "A",
+          "rawSQL": "SELECT 100.0 * SUM(CASE WHEN (LOWER(TRIM(CAST(cnep_sancionado AS VARCHAR))) = 'true') AND UPPER(TRIM(status)) = 'ATIVA' THEN 1 ELSE 0 END) / NULLIF(SUM(CASE WHEN UPPER(TRIM(status)) = 'ATIVA' THEN 1 ELSE 0 END), 0) AS \"CNEP %\" FROM final_output"
+        }
+      ],
+      "title": "Gauge: % CNEP (cadastro ATIVA)",
+      "type": "gauge"
+    }
+  ],
+  "refresh": "1m",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": [
+    "athena",
+    "ceis",
+    "cnep",
+    "cnpj",
+    "glue",
+    "kpi",
+    "persona-diretoria",
+    "primelead"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": "arq_infra_db",
+          "value": "arq_infra_db"
+        },
+        "hide": 0,
+        "label": "Database Glue (Athena)",
+        "name": "ATHENA_DB",
+        "options": [
+          {
+            "selected": true,
+            "text": "arq_infra_db",
+            "value": "arq_infra_db"
+          }
+        ],
+        "query": "arq_infra_db",
+        "skipUrlSync": false,
+        "type": "constant"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-2y",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "America/Sao_Paulo",
+  "title": "PrimeLead – Diretoria executiva | Visão estratégica e risco",
+  "uid": "primelead-cnpj-kpi-athena-diretor",
+  "version": 1,
+  "weekStart": ""
+}

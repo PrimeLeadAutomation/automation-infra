@@ -1,0 +1,674 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_ATHENA",
+      "label": "Amazon Athena (Glue / final_output)",
+      "description": "Datasource Amazon Athena (plugin grafana-athena-datasource). Database Glue usado nas queries: arq_infra_db (variável ATHENA_DB no painel).",
+      "type": "datasource",
+      "pluginId": "grafana-athena-datasource",
+      "pluginName": "Amazon Athena"
+    }
+  ],
+  "__elements": {},
+  "__requires": [
+    {
+      "type": "grafana",
+      "id": "grafana",
+      "name": "Grafana",
+      "version": "10.0.0"
+    },
+    {
+      "type": "panel",
+      "id": "barchart",
+      "name": "Bar chart",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "gauge",
+      "name": "Gauge",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "piechart",
+      "name": "Pie chart",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "stat",
+      "name": "Stat",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "table",
+      "name": "Table",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "text",
+      "name": "Text",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "timeseries",
+      "name": "Time series",
+      "version": ""
+    },
+    {
+      "type": "datasource",
+      "id": "grafana-athena-datasource",
+      "name": "Amazon Athena",
+      "version": "1.0.0"
+    }
+  ],
+  "annotations": {
+    "list": []
+  },
+  "description": "Persona analista SDR: triagem de status cadastral, segmentação CNAE e drill-down CEIS/CNEP (por UF + lista de alertas + naturezas jurídicas).",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 102,
+      "panels": [],
+      "title": "Triagem cadastral",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "${DS_ATHENA}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 1
+      },
+      "id": 7,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "orientation": "horizontal",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "xField": "status",
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 100
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "${DS_ATHENA}"
+          },
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "${ATHENA_DB}",
+            "region": "__default"
+          },
+          "format": 1,
+          "refId": "A",
+          "rawSQL": "SELECT COALESCE(NULLIF(TRIM(status), ''), '(sem status)') AS status, CAST(COUNT(*) AS BIGINT) AS qtd FROM final_output GROUP BY 1 ORDER BY qtd DESC"
+        }
+      ],
+      "title": "Volume por situação cadastral",
+      "type": "barchart"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 9
+      },
+      "id": 103,
+      "panels": [],
+      "title": "Segmentação por setor (CNAE)",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "${DS_ATHENA}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 85,
+            "gradientMode": "hue",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "decimals": 1,
+          "mappings": [],
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 10
+      },
+      "id": 10,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.85,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "orientation": "horizontal",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "xField": "cnae",
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 80
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "${DS_ATHENA}"
+          },
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "${ATHENA_DB}",
+            "region": "__default"
+          },
+          "format": 1,
+          "refId": "A",
+          "rawSQL": "WITH raw AS (\n  SELECT status, cnae_fiscal,\n    COALESCE(\n      TRY_CAST(TRIM(CAST(data_inicio_atividade AS VARCHAR)) AS DATE),\n      try(date_parse(nullif(TRIM(CAST(data_inicio_atividade AS VARCHAR)), ''), '%Y-%m-%d')),\n      try(date_parse(nullif(TRIM(CAST(data_inicio_atividade AS VARCHAR)), ''), '%d/%m/%Y'))\n    ) AS di\n  FROM final_output\n),\nbase AS (\n  SELECT substr(regexp_replace(CAST(cnae_fiscal AS VARCHAR), '[^0-9]', ''), 1, 7) AS cnae,\n         CASE WHEN di <= current_date - INTERVAL '5' YEAR THEN 1 ELSE 0 END AS madura\n  FROM raw\n  WHERE UPPER(TRIM(status)) = 'ATIVA' AND cnae_fiscal IS NOT NULL\n)\nSELECT cnae,\n       100.0 * CAST(SUM(madura) AS DOUBLE) / NULLIF(COUNT(*), 0) AS pct_maduras\nFROM base\nWHERE LENGTH(cnae) >= 4\nGROUP BY cnae\nHAVING COUNT(*) >= 1\nORDER BY COUNT(*) DESC\nLIMIT 12"
+        }
+      ],
+      "title": "Empresas ativas maduras por CNAE (%)",
+      "type": "barchart"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 20
+      },
+      "id": 104,
+      "panels": [],
+      "title": "Mitigação operacional CEIS/CNEP",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "${DS_ATHENA}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            }
+          },
+          "mappings": [],
+          "unit": "none"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ceis_sim"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ceis_nao"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 21
+      },
+      "id": 13,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.85,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [
+            "sum"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "horizontal",
+        "showValue": "auto",
+        "stacking": "normal",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        },
+        "xField": "uf",
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "${DS_ATHENA}"
+          },
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "${ATHENA_DB}",
+            "region": "__default"
+          },
+          "format": 1,
+          "refId": "A",
+          "rawSQL": "SELECT COALESCE(NULLIF(TRIM(uf), ''), '(sem UF)') AS uf,\n       CAST(SUM(CASE WHEN LOWER(TRIM(CAST(ceis_sancionado AS VARCHAR))) = 'true' THEN 1 ELSE 0 END) AS BIGINT) AS ceis_sim,\n       CAST(SUM(CASE WHEN LOWER(TRIM(CAST(ceis_sancionado AS VARCHAR))) <> 'true' OR ceis_sancionado IS NULL THEN 1 ELSE 0 END) AS BIGINT) AS ceis_nao\nFROM final_output\nGROUP BY 1\nORDER BY (ceis_sim + ceis_nao) DESC\nLIMIT 15"
+        }
+      ],
+      "title": "CEIS por Capital",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "${DS_ATHENA}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ceis_sancionado"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "transparent",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cnep_sancionado"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "transparent",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 27
+      },
+      "id": 14,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "${DS_ATHENA}"
+          },
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "${ATHENA_DB}",
+            "region": "__default"
+          },
+          "format": 1,
+          "refId": "A",
+          "rawSQL": "SELECT cnpj_formatado, razao_social, uf, municipio, status,\n       ceis_sancionado, cnep_sancionado, substr(COALESCE(CAST(ceis_detalhes AS VARCHAR), ''), 1, 120) AS ceis_resumo,\n       substr(COALESCE(CAST(cnep_detalhes AS VARCHAR), ''), 1, 120) AS cnep_resumo\nFROM final_output\nWHERE (LOWER(TRIM(CAST(ceis_sancionado AS VARCHAR))) = 'true') OR (LOWER(TRIM(CAST(cnep_sancionado AS VARCHAR))) = 'true')\nORDER BY uf, razao_social\nLIMIT 500"
+        }
+      ],
+      "title": "Registros com alerta CEIS ou CNEP (detalhado)",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "${DS_ATHENA}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "hue",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 35
+      },
+      "id": 17,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.88,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "orientation": "horizontal",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "xField": "natureza",
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 100
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "${DS_ATHENA}"
+          },
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "${ATHENA_DB}",
+            "region": "__default"
+          },
+          "format": 1,
+          "refId": "A",
+          "rawSQL": "SELECT COALESCE(NULLIF(TRIM(natureza_juridica), ''), '(não informado)') AS natureza, CAST(COUNT(*) AS BIGINT) AS qtd FROM final_output GROUP BY 1 ORDER BY qtd DESC LIMIT 15"
+        }
+      ],
+      "title": "Principais naturezas jurídicas",
+      "type": "barchart"
+    }
+  ],
+  "refresh": "1m",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": [
+    "primelead",
+    "cnpj",
+    "kpi",
+    "ceis",
+    "cnep",
+    "athena",
+    "glue",
+    "persona-sdr",
+    "analista"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": "arq_infra_db",
+          "value": "arq_infra_db"
+        },
+        "hide": 0,
+        "label": "Database Glue (Athena)",
+        "name": "ATHENA_DB",
+        "options": [
+          {
+            "selected": true,
+            "text": "arq_infra_db",
+            "value": "arq_infra_db"
+          }
+        ],
+        "query": "arq_infra_db",
+        "skipUrlSync": false,
+        "type": "constant"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-2y",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "America/Sao_Paulo",
+  "title": "PrimeLead – Analista SDR | Triagem e operação CEIS/CNEP",
+  "uid": "primelead-cnpj-kpi-athena-sdr",
+  "version": 1,
+  "weekStart": ""
+}
