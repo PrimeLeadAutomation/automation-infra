@@ -80,20 +80,91 @@ Resources:
           import json
           import os
           import boto3
+          from botocore.exceptions import ClientError
+
           sns = boto3.client("sns")
+
+          def _event_brief(event):
+              lines = []
+              for rec in event.get("Records") or []:
+                  s3 = rec.get("s3") or {}
+                  b = (s3.get("bucket") or {}).get("name")
+                  k = (s3.get("object") or {}).get("key", "")
+                  if b and k:
+                      lines.append(f"  • s3://{b}/{k}")
+              return "\n".join(lines) if lines else "  • (nenhum objeto S3 listado no evento)"
+
+          def _env_campos():
+              out = {}
+              for k in ("BUCKET_BRONZE", "BUCKET_SILVER", "BUCKET_GOLD", "LAMBDA_GOLD"):
+                  v = os.environ.get(k)
+                  if v:
+                      out[k] = v
+              return out
+
+          def _error_parts(exc):
+              if isinstance(exc, ClientError):
+                  err = exc.response.get("Error") or {}
+                  return err.get("Code", type(exc).__name__), err.get("Message", str(exc))
+              return type(exc).__name__, str(exc)
+
           def notify_success(summary):
               arn = os.environ.get("SNS_TOPIC_ARN")
               step = os.environ.get("ETL_STEP", "ETL")
-              if arn:
-                  sns.publish(
-                      TopicArn=arn,
-                      Subject="ETL concluída com sucesso: " + step,
-                      Message=json.dumps(summary, indent=2, default=str),
-                  )
+              if not arn:
+                  return
+              status = summary.get("status", "sucesso")
+              body = (
+                  "Tratamento de dados finalizado com sucesso.\n\n"
+                  f"Etapa: {step}\n"
+                  f"Status: {status}\n\n"
+                  "Disparo / objetos:\n"
+                  f"{summary.get('detalhe_evento', '')}\n"
+              )
+              campos = summary.get("campos") or {}
+              if campos:
+                  body += "\nResumo:\n" + "\n".join(f"  • {k}: {v}" for k, v in campos.items())
+              sns.publish(
+                  TopicArn=arn,
+                  Subject=f"ETL OK — {step}",
+                  Message=body,
+              )
+
+          def notify_error(code, message):
+              arn = os.environ.get("SNS_TOPIC_ARN")
+              step = os.environ.get("ETL_STEP", "ETL")
+              if not arn:
+                  return
+              body = (
+                  "Tratamento de dados finalizado com ERRO.\n\n"
+                  f"Etapa: {step}\n"
+                  f"Código do erro: {code}\n"
+                  f"Mensagem: {message}\n"
+              )
+              sns.publish(
+                  TopicArn=arn,
+                  Subject=f"[URGENTE] Erro na ETL — {step}",
+                  Message=body,
+              )
+
           def handler(event, context):
               print("Evento recebido:", json.dumps(event))
-              # TODO: lógica de transformação Bronze -> Silver, implementada no lambda prata/process-bronze.py
-              return {"statusCode": 200}
+              try:
+                  # TODO: lógica de transformação Bronze -> Silver, implementada no lambda prata/process-bronze.py
+                  campos = _env_campos()
+                  campos["RequestId"] = getattr(context, "aws_request_id", "(n/d)")
+                  campos["Função"] = getattr(context, "function_name", "(n/d)")
+                  notify_success({
+                      "status": "sucesso",
+                      "detalhe_evento": _event_brief(event),
+                      "campos": campos,
+                  })
+                  return {"statusCode": 200}
+              except Exception as e:
+                  print("Falha na ETL:", repr(e))
+                  code, msg = _error_parts(e)
+                  notify_error(code, msg)
+                  return {"statusCode": 500, "body": json.dumps({"erro": msg})}
 
   TransformToSilverPermission:
     Type: AWS::Lambda::Permission
@@ -122,20 +193,91 @@ Resources:
           import json
           import os
           import boto3
+          from botocore.exceptions import ClientError
+
           sns = boto3.client("sns")
+
+          def _event_brief(event):
+              lines = []
+              for rec in event.get("Records") or []:
+                  s3 = rec.get("s3") or {}
+                  b = (s3.get("bucket") or {}).get("name")
+                  k = (s3.get("object") or {}).get("key", "")
+                  if b and k:
+                      lines.append(f"  • s3://{b}/{k}")
+              return "\n".join(lines) if lines else "  • (nenhum objeto S3 listado no evento)"
+
+          def _env_campos():
+              out = {}
+              for k in ("BUCKET_BRONZE", "BUCKET_SILVER", "BUCKET_GOLD", "LAMBDA_GOLD"):
+                  v = os.environ.get(k)
+                  if v:
+                      out[k] = v
+              return out
+
+          def _error_parts(exc):
+              if isinstance(exc, ClientError):
+                  err = exc.response.get("Error") or {}
+                  return err.get("Code", type(exc).__name__), err.get("Message", str(exc))
+              return type(exc).__name__, str(exc)
+
           def notify_success(summary):
               arn = os.environ.get("SNS_TOPIC_ARN")
               step = os.environ.get("ETL_STEP", "ETL")
-              if arn:
-                  sns.publish(
-                      TopicArn=arn,
-                      Subject="ETL concluída com sucesso: " + step,
-                      Message=json.dumps(summary, indent=2, default=str),
-                  )
+              if not arn:
+                  return
+              status = summary.get("status", "sucesso")
+              body = (
+                  "Tratamento de dados finalizado com sucesso.\n\n"
+                  f"Etapa: {step}\n"
+                  f"Status: {status}\n\n"
+                  "Disparo / objetos:\n"
+                  f"{summary.get('detalhe_evento', '')}\n"
+              )
+              campos = summary.get("campos") or {}
+              if campos:
+                  body += "\nResumo:\n" + "\n".join(f"  • {k}: {v}" for k, v in campos.items())
+              sns.publish(
+                  TopicArn=arn,
+                  Subject=f"ETL OK — {step}",
+                  Message=body,
+              )
+
+          def notify_error(code, message):
+              arn = os.environ.get("SNS_TOPIC_ARN")
+              step = os.environ.get("ETL_STEP", "ETL")
+              if not arn:
+                  return
+              body = (
+                  "Tratamento de dados finalizado com ERRO.\n\n"
+                  f"Etapa: {step}\n"
+                  f"Código do erro: {code}\n"
+                  f"Mensagem: {message}\n"
+              )
+              sns.publish(
+                  TopicArn=arn,
+                  Subject=f"[URGENTE] Erro na ETL — {step}",
+                  Message=body,
+              )
+
           def handler(event, context):
               print("Evento recebido:", json.dumps(event))
-              # TODO: lógica de transformação Silver -> Gold, implementada no lambda gold/concat-gold.py
-              return {"statusCode": 200}
+              try:
+                  # TODO: lógica de transformação Silver -> Gold, implementada no lambda gold/concat-gold.py
+                  campos = _env_campos()
+                  campos["RequestId"] = getattr(context, "aws_request_id", "(n/d)")
+                  campos["Função"] = getattr(context, "function_name", "(n/d)")
+                  notify_success({
+                      "status": "sucesso",
+                      "detalhe_evento": _event_brief(event),
+                      "campos": campos,
+                  })
+                  return {"statusCode": 200}
+              except Exception as e:
+                  print("Falha na ETL:", repr(e))
+                  code, msg = _error_parts(e)
+                  notify_error(code, msg)
+                  return {"statusCode": 500, "body": json.dumps({"erro": msg})}
 
   TransformToGoldPermission:
     Type: AWS::Lambda::Permission
