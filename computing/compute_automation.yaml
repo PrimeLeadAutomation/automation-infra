@@ -91,6 +91,8 @@ Resources:
 Outputs:
   PublicInstanceId:
     Value: !Ref PublicInstance
+    Export:
+      Name: PublicInstanceId
 
   GrafanaPublicIp:
     Description: IP público fixo (Elastic IP) — Grafana em http://<IP>:3000

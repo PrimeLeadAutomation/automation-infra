@@ -1,0 +1,51 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Camada de Monitoramento - CloudWatch Dashboard para EC2 Pública
+
+Resources:
+  PublicEC2Dashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub "Public-EC2-Monitoring-${AWS::Region}"
+      DashboardBody:
+        Fn::Sub:
+          - |
+            {
+              "widgets": [
+                {
+                  "type": "metric",
+                  "x": 0,
+                  "y": 0,
+                  "width": 12,
+                  "height": 6,
+                  "properties": {
+                    "metrics": [
+                      [ "AWS/EC2", "CPUUtilization", "InstanceId", "${InstanceId}" ]
+                    ],
+                    "view": "timeSeries",
+                    "stacked": false,
+                    "region": "${AWS::Region}",
+                    "title": "Percentual de Uso da CPU",
+                    "period": 60
+                  }
+                },
+                {
+                  "type": "metric",
+                  "x": 12,
+                  "y": 0,
+                  "width": 12,
+                  "height": 6,
+                  "properties": {
+                    "metrics": [
+                      [ "AWS/EC2", "NetworkIn", "InstanceId", "${InstanceId}" ],
+                      [ ".", "NetworkOut", ".", "." ]
+                    ],
+                    "view": "timeSeries",
+                    "stacked": false,
+                    "region": "${AWS::Region}",
+                    "title": "Tráfego de Rede (In/Out)",
+                    "period": 60
+                  }
+                }
+              ]
+            }
+          - InstanceId: !ImportValue PublicInstanceId
