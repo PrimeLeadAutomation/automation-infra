@@ -3,7 +3,7 @@
     {
       "name": "DS_ATHENA",
       "label": "Amazon Athena (Glue / final_output)",
-      "description": "Datasource Amazon Athena (plugin grafana-athena-datasource). Database Glue usado nas queries: arq_infra_db (variável ATHENA_DB no painel).",
+      "description": "Datasource Amazon Athena.",
       "type": "datasource",
       "pluginId": "grafana-athena-datasource",
       "pluginName": "Amazon Athena"
@@ -25,18 +25,6 @@
     },
     {
       "type": "panel",
-      "id": "gauge",
-      "name": "Gauge",
-      "version": ""
-    },
-    {
-      "type": "panel",
-      "id": "piechart",
-      "name": "Pie chart",
-      "version": ""
-    },
-    {
-      "type": "panel",
       "id": "stat",
       "name": "Stat",
       "version": ""
@@ -54,12 +42,6 @@
       "version": ""
     },
     {
-      "type": "panel",
-      "id": "timeseries",
-      "name": "Time series",
-      "version": ""
-    },
-    {
       "type": "datasource",
       "id": "grafana-athena-datasource",
       "name": "Amazon Athena",
@@ -69,7 +51,7 @@
   "annotations": {
     "list": []
   },
-  "description": "Persona analista SDR: triagem de status cadastral, segmentação CNAE e drill-down CEIS/CNEP (por UF + lista de alertas + naturezas jurídicas).",
+  "description": "Persona analista SDR: EDA, funil de prospecção, segmentação CNAE, taxa CEIS/CNEP por UF e drill-down operacional.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -78,16 +60,36 @@
   "liveNow": false,
   "panels": [
     {
+      "gridPos": {
+        "h": 3,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 200,
+      "options": {
+        "code": {
+          "language": "markdown",
+          "showLineNumbers": false
+        },
+        "content": "### Leitura guiada (Analista SDR)\n**Snapshot** da tabela `final_output` — o seletor de tempo não altera os painéis.\n\n1. **EDA** — valide qualidade antes de priorizar carteira.\n2. **Funil** — ATIVA → madura → sem restrição → lista de alertas.\n3. **Filtros** (UF / status / porte) — segmentação diagnóstica em todos os painéis abaixo.\n",
+        "mode": "markdown"
+      },
+      "title": "",
+      "type": "text",
+      "pluginVersion": "10.0.0"
+    },
+    {
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 0
+        "y": 3
       },
-      "id": 102,
+      "id": 201,
       "panels": [],
-      "title": "Triagem cadastral",
+      "title": "Saúde da base (EDA)",
       "type": "row"
     },
     {
@@ -98,62 +100,51 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "fillOpacity": 80,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineWidth": 1,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
+            "mode": "thresholds"
           },
           "mappings": [],
-          "unit": "none"
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 85
+              },
+              {
+                "color": "green",
+                "value": 95
+              }
+            ]
+          },
+          "unit": "percent",
+          "decimals": 1
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 24,
+        "h": 3,
+        "w": 6,
         "x": 0,
-        "y": 1
+        "y": 4
       },
-      "id": 7,
+      "id": 18,
       "options": {
-        "barRadius": 0,
-        "barWidth": 0.97,
-        "fullHighlight": false,
-        "groupWidth": 0.7,
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
         },
-        "orientation": "horizontal",
-        "showValue": "auto",
-        "stacking": "none",
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        },
-        "xField": "status",
-        "xTickLabelRotation": 0,
-        "xTickLabelSpacing": 100
+        "textMode": "auto"
       },
       "pluginVersion": "10.0.0",
       "targets": [
@@ -169,7 +160,566 @@
           },
           "format": 1,
           "refId": "A",
-          "rawSQL": "SELECT COALESCE(NULLIF(TRIM(status), ''), '(sem status)') AS status, CAST(COUNT(*) AS BIGINT) AS qtd FROM final_output GROUP BY 1 ORDER BY qtd DESC"
+          "rawSQL": "SELECT 100.0 * SUM(CASE WHEN NULLIF(TRIM(status), '') IS NOT NULL AND NULLIF(TRIM(uf), '') IS NOT NULL AND NULLIF(TRIM(porte), '') IS NOT NULL THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0) AS pct FROM final_output WHERE 1=1 \n  AND ('${filtro_uf}' = 'Todos' OR COALESCE(NULLIF(TRIM(uf), ''), '(sem UF)') = '${filtro_uf}')\n  AND ('${filtro_status}' = 'Todos' OR COALESCE(NULLIF(TRIM(status), ''), '(sem status)') = '${filtro_status}')\n  AND ('${filtro_porte}' = 'Todos' OR COALESCE(NULLIF(TRIM(porte), ''), '(sem porte)') = '${filtro_porte}')\n"
+        }
+      ],
+      "title": "% cadastro completo (status+UF+porte)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "${DS_ATHENA}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          },
+          "unit": "percent",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 6,
+        "y": 4
+      },
+      "id": 19,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "${DS_ATHENA}"
+          },
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "${ATHENA_DB}",
+            "region": "__default"
+          },
+          "format": 1,
+          "refId": "A",
+          "rawSQL": "SELECT 100.0 * SUM(CASE WHEN NULLIF(TRIM(status), '') IS NULL THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0) AS pct FROM final_output WHERE 1=1 \n  AND ('${filtro_uf}' = 'Todos' OR COALESCE(NULLIF(TRIM(uf), ''), '(sem UF)') = '${filtro_uf}')\n  AND ('${filtro_status}' = 'Todos' OR COALESCE(NULLIF(TRIM(status), ''), '(sem status)') = '${filtro_status}')\n  AND ('${filtro_porte}' = 'Todos' OR COALESCE(NULLIF(TRIM(porte), ''), '(sem porte)') = '${filtro_porte}')\n"
+        }
+      ],
+      "title": "% sem status",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "${DS_ATHENA}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 80
+              },
+              {
+                "color": "green",
+                "value": 95
+              }
+            ]
+          },
+          "unit": "percent",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 12,
+        "y": 4
+      },
+      "id": 20,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "${DS_ATHENA}"
+          },
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "${ATHENA_DB}",
+            "region": "__default"
+          },
+          "format": 1,
+          "refId": "A",
+          "rawSQL": "SELECT 100.0 * SUM(CASE WHEN COALESCE(\n      TRY_CAST(TRIM(CAST(data_inicio_atividade AS VARCHAR)) AS DATE),\n      try(date_parse(nullif(TRIM(CAST(data_inicio_atividade AS VARCHAR)), ''), '%Y-%m-%d')),\n      try(date_parse(nullif(TRIM(CAST(data_inicio_atividade AS VARCHAR)), ''), '%d/%m/%Y'))\n    ) IS NOT NULL THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0) AS pct FROM final_output WHERE 1=1 \n  AND ('${filtro_uf}' = 'Todos' OR COALESCE(NULLIF(TRIM(uf), ''), '(sem UF)') = '${filtro_uf}')\n  AND ('${filtro_status}' = 'Todos' OR COALESCE(NULLIF(TRIM(status), ''), '(sem status)') = '${filtro_status}')\n  AND ('${filtro_porte}' = 'Todos' OR COALESCE(NULLIF(TRIM(porte), ''), '(sem porte)') = '${filtro_porte}')\n"
+        }
+      ],
+      "title": "% data início válida",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "${DS_ATHENA}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 18,
+        "y": 4
+      },
+      "id": 21,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "${DS_ATHENA}"
+          },
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "${ATHENA_DB}",
+            "region": "__default"
+          },
+          "format": 1,
+          "refId": "A",
+          "rawSQL": "SELECT CAST(COUNT(*) AS BIGINT) AS n FROM final_output WHERE 1=1 \n  AND ('${filtro_uf}' = 'Todos' OR COALESCE(NULLIF(TRIM(uf), ''), '(sem UF)') = '${filtro_uf}')\n  AND ('${filtro_status}' = 'Todos' OR COALESCE(NULLIF(TRIM(status), ''), '(sem status)') = '${filtro_status}')\n  AND ('${filtro_porte}' = 'Todos' OR COALESCE(NULLIF(TRIM(porte), ''), '(sem porte)') = '${filtro_porte}')\n"
+        }
+      ],
+      "title": "Registros na visão (filtros)",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      },
+      "id": 102,
+      "panels": [],
+      "title": "Triagem e funil de prospecção",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "${DS_ATHENA}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 40
+              },
+              {
+                "color": "green",
+                "value": 70
+              }
+            ]
+          },
+          "unit": "percent",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 0,
+        "y": 9
+      },
+      "id": 22,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "${DS_ATHENA}"
+          },
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "${ATHENA_DB}",
+            "region": "__default"
+          },
+          "format": 1,
+          "refId": "A",
+          "rawSQL": "SELECT 100.0 * SUM(CASE WHEN UPPER(TRIM(status)) = 'ATIVA' THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0) AS pct FROM final_output WHERE 1=1 \n  AND ('${filtro_uf}' = 'Todos' OR COALESCE(NULLIF(TRIM(uf), ''), '(sem UF)') = '${filtro_uf}')\n  AND ('${filtro_status}' = 'Todos' OR COALESCE(NULLIF(TRIM(status), ''), '(sem status)') = '${filtro_status}')\n  AND ('${filtro_porte}' = 'Todos' OR COALESCE(NULLIF(TRIM(porte), ''), '(sem porte)') = '${filtro_porte}')\n"
+        }
+      ],
+      "title": "% situação ATIVA",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "${DS_ATHENA}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "purple",
+                "value": null
+              }
+            ]
+          },
+          "unit": "percent",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 6,
+        "y": 9
+      },
+      "id": 23,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "${DS_ATHENA}"
+          },
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "${ATHENA_DB}",
+            "region": "__default"
+          },
+          "format": 1,
+          "refId": "A",
+          "rawSQL": "WITH x AS (SELECT status, COALESCE(\n      TRY_CAST(TRIM(CAST(data_inicio_atividade AS VARCHAR)) AS DATE),\n      try(date_parse(nullif(TRIM(CAST(data_inicio_atividade AS VARCHAR)), ''), '%Y-%m-%d')),\n      try(date_parse(nullif(TRIM(CAST(data_inicio_atividade AS VARCHAR)), ''), '%d/%m/%Y'))\n    ) AS di FROM final_output WHERE 1=1 \n  AND ('${filtro_uf}' = 'Todos' OR COALESCE(NULLIF(TRIM(uf), ''), '(sem UF)') = '${filtro_uf}')\n  AND ('${filtro_status}' = 'Todos' OR COALESCE(NULLIF(TRIM(status), ''), '(sem status)') = '${filtro_status}')\n  AND ('${filtro_porte}' = 'Todos' OR COALESCE(NULLIF(TRIM(porte), ''), '(sem porte)') = '${filtro_porte}')\n) SELECT 100.0 * SUM(CASE WHEN UPPER(TRIM(status)) = 'ATIVA' AND di IS NOT NULL AND di <= current_date - INTERVAL '5' YEAR THEN 1 ELSE 0 END) / NULLIF(SUM(CASE WHEN UPPER(TRIM(status)) = 'ATIVA' THEN 1 ELSE 0 END), 0) AS pct FROM x"
+        }
+      ],
+      "title": "% maduras (≥5a, ATIVAS)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "${DS_ATHENA}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 12,
+        "y": 9
+      },
+      "id": 24,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "${DS_ATHENA}"
+          },
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "${ATHENA_DB}",
+            "region": "__default"
+          },
+          "format": 1,
+          "refId": "A",
+          "rawSQL": "WITH x AS (SELECT status, COALESCE(\n      TRY_CAST(TRIM(CAST(data_inicio_atividade AS VARCHAR)) AS DATE),\n      try(date_parse(nullif(TRIM(CAST(data_inicio_atividade AS VARCHAR)), ''), '%Y-%m-%d')),\n      try(date_parse(nullif(TRIM(CAST(data_inicio_atividade AS VARCHAR)), ''), '%d/%m/%Y'))\n    ) AS di, ceis_sancionado, cnep_sancionado FROM final_output WHERE 1=1 \n  AND ('${filtro_uf}' = 'Todos' OR COALESCE(NULLIF(TRIM(uf), ''), '(sem UF)') = '${filtro_uf}')\n  AND ('${filtro_status}' = 'Todos' OR COALESCE(NULLIF(TRIM(status), ''), '(sem status)') = '${filtro_status}')\n  AND ('${filtro_porte}' = 'Todos' OR COALESCE(NULLIF(TRIM(porte), ''), '(sem porte)') = '${filtro_porte}')\n)\nSELECT CAST(SUM(CASE WHEN UPPER(TRIM(status)) = 'ATIVA' AND di IS NOT NULL AND di <= current_date - INTERVAL '5' YEAR\n  AND LOWER(TRIM(CAST(ceis_sancionado AS VARCHAR))) <> 'true'\n  AND (cnep_sancionado IS NULL OR LOWER(TRIM(CAST(cnep_sancionado AS VARCHAR))) <> 'true') THEN 1 ELSE 0 END) AS BIGINT) AS n FROM x"
+        }
+      ],
+      "title": "Empresas acionáveis",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "${DS_ATHENA}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "orange",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 18,
+        "y": 9
+      },
+      "id": 25,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "${DS_ATHENA}"
+          },
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "${ATHENA_DB}",
+            "region": "__default"
+          },
+          "format": 1,
+          "refId": "A",
+          "rawSQL": "SELECT CAST(SUM(CASE WHEN (LOWER(TRIM(CAST(ceis_sancionado AS VARCHAR))) = 'true') OR (LOWER(TRIM(CAST(cnep_sancionado AS VARCHAR))) = 'true') THEN 1 ELSE 0 END) AS BIGINT) AS n FROM final_output WHERE 1=1 \n  AND ('${filtro_uf}' = 'Todos' OR COALESCE(NULLIF(TRIM(uf), ''), '(sem UF)') = '${filtro_uf}')\n  AND ('${filtro_status}' = 'Todos' OR COALESCE(NULLIF(TRIM(status), ''), '(sem status)') = '${filtro_status}')\n  AND ('${filtro_porte}' = 'Todos' OR COALESCE(NULLIF(TRIM(porte), ''), '(sem porte)') = '${filtro_porte}')\n"
+        }
+      ],
+      "title": "Alertas CEIS/CNEP (qtd)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "${DS_ATHENA}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "fillOpacity": 80
+          },
+          "mappings": [],
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 13
+      },
+      "id": 7,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "groupWidth": 0.7,
+        "legend": {
+          "showLegend": false
+        },
+        "orientation": "horizontal",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "single"
+        },
+        "xField": "status"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "${DS_ATHENA}"
+          },
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "${ATHENA_DB}",
+            "region": "__default"
+          },
+          "format": 1,
+          "refId": "A",
+          "rawSQL": "SELECT COALESCE(NULLIF(TRIM(status), ''), '(sem status)') AS status, CAST(COUNT(*) AS BIGINT) AS qtd FROM final_output WHERE 1=1 \n  AND ('${filtro_uf}' = 'Todos' OR COALESCE(NULLIF(TRIM(uf), ''), '(sem UF)') = '${filtro_uf}')\n  AND ('${filtro_status}' = 'Todos' OR COALESCE(NULLIF(TRIM(status), ''), '(sem status)') = '${filtro_status}')\n  AND ('${filtro_porte}' = 'Todos' OR COALESCE(NULLIF(TRIM(porte), ''), '(sem porte)') = '${filtro_porte}')\n GROUP BY 1 ORDER BY qtd DESC"
         }
       ],
       "title": "Volume por situação cadastral",
@@ -181,7 +731,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 9
+        "y": 21
       },
       "id": 103,
       "panels": [],
@@ -199,60 +749,60 @@
             "mode": "palette-classic"
           },
           "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "fillOpacity": 85,
-            "gradientMode": "hue",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineWidth": 1,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
+            "fillOpacity": 85
           },
-          "decimals": 1,
           "mappings": [],
-          "unit": "percent"
+          "unit": "none"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "pct_maduras"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 10
+        "y": 22
       },
       "id": 10,
       "options": {
         "barRadius": 0,
         "barWidth": 0.85,
-        "fullHighlight": false,
-        "groupWidth": 0.7,
+        "groupWidth": 0.75,
         "legend": {
-          "calcs": [],
           "displayMode": "list",
           "placement": "bottom",
-          "showLegend": false
+          "showLegend": true
         },
         "orientation": "horizontal",
         "showValue": "auto",
         "stacking": "none",
         "tooltip": {
-          "mode": "single",
-          "sort": "none"
+          "mode": "multi"
         },
-        "xField": "cnae",
-        "xTickLabelRotation": 0,
-        "xTickLabelSpacing": 80
+        "xField": "cnae"
       },
       "pluginVersion": "10.0.0",
       "targets": [
@@ -268,10 +818,10 @@
           },
           "format": 1,
           "refId": "A",
-          "rawSQL": "WITH raw AS (\n  SELECT status, cnae_fiscal,\n    COALESCE(\n      TRY_CAST(TRIM(CAST(data_inicio_atividade AS VARCHAR)) AS DATE),\n      try(date_parse(nullif(TRIM(CAST(data_inicio_atividade AS VARCHAR)), ''), '%Y-%m-%d')),\n      try(date_parse(nullif(TRIM(CAST(data_inicio_atividade AS VARCHAR)), ''), '%d/%m/%Y'))\n    ) AS di\n  FROM final_output\n),\nbase AS (\n  SELECT substr(regexp_replace(CAST(cnae_fiscal AS VARCHAR), '[^0-9]', ''), 1, 7) AS cnae,\n         CASE WHEN di <= current_date - INTERVAL '5' YEAR THEN 1 ELSE 0 END AS madura\n  FROM raw\n  WHERE UPPER(TRIM(status)) = 'ATIVA' AND cnae_fiscal IS NOT NULL\n)\nSELECT cnae,\n       100.0 * CAST(SUM(madura) AS DOUBLE) / NULLIF(COUNT(*), 0) AS pct_maduras\nFROM base\nWHERE LENGTH(cnae) >= 4\nGROUP BY cnae\nHAVING COUNT(*) >= 1\nORDER BY COUNT(*) DESC\nLIMIT 12"
+          "rawSQL": "WITH raw AS (\n  SELECT status, cnae_fiscal, COALESCE(\n      TRY_CAST(TRIM(CAST(data_inicio_atividade AS VARCHAR)) AS DATE),\n      try(date_parse(nullif(TRIM(CAST(data_inicio_atividade AS VARCHAR)), ''), '%Y-%m-%d')),\n      try(date_parse(nullif(TRIM(CAST(data_inicio_atividade AS VARCHAR)), ''), '%d/%m/%Y'))\n    ) AS di\n  FROM final_output WHERE 1=1 \n  AND ('${filtro_uf}' = 'Todos' OR COALESCE(NULLIF(TRIM(uf), ''), '(sem UF)') = '${filtro_uf}')\n  AND ('${filtro_status}' = 'Todos' OR COALESCE(NULLIF(TRIM(status), ''), '(sem status)') = '${filtro_status}')\n  AND ('${filtro_porte}' = 'Todos' OR COALESCE(NULLIF(TRIM(porte), ''), '(sem porte)') = '${filtro_porte}')\n\n),\nbase AS (\n  SELECT substr(regexp_replace(CAST(cnae_fiscal AS VARCHAR), '[^0-9]', ''), 1, 7) AS cnae,\n         CASE WHEN di <= current_date - INTERVAL '5' YEAR THEN 1 ELSE 0 END AS madura\n  FROM raw\n  WHERE UPPER(TRIM(status)) = 'ATIVA' AND cnae_fiscal IS NOT NULL\n)\nSELECT cnae, CAST(COUNT(*) AS BIGINT) AS volume,\n       100.0 * CAST(SUM(madura) AS DOUBLE) / NULLIF(COUNT(*), 0) AS pct_maduras\nFROM base WHERE LENGTH(cnae) >= 4\nGROUP BY cnae ORDER BY volume DESC LIMIT 12"
         }
       ],
-      "title": "Empresas ativas maduras por CNAE (%)",
+      "title": "Top CNAE: volume + % maduras (≥5 anos)",
       "type": "barchart"
     },
     {
@@ -280,7 +830,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 20
+        "y": 32
       },
       "id": 104,
       "panels": [],
@@ -295,96 +845,42 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "fillOpacity": 80,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineWidth": 1,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "stacking": {
-              "group": "A",
-              "mode": "normal"
-            }
+            "mode": "thresholds"
           },
           "mappings": [],
-          "unit": "none"
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "ceis_sim"
-            },
-            "properties": [
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
               {
-                "id": "color",
-                "value": {
-                  "fixedColor": "red",
-                  "mode": "fixed"
-                }
+                "color": "blue",
+                "value": null
               }
             ]
           },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "ceis_nao"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "green",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          }
-        ]
+          "unit": "none"
+        },
+        "overrides": []
       },
       "gridPos": {
-        "h": 6,
-        "w": 24,
+        "h": 3,
+        "w": 8,
         "x": 0,
-        "y": 21
+        "y": 33
       },
-      "id": 13,
+      "id": 26,
       "options": {
-        "barRadius": 0,
-        "barWidth": 0.85,
-        "fullHighlight": false,
-        "groupWidth": 0.7,
-        "legend": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
           "calcs": [
-            "sum"
+            "lastNotNull"
           ],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
+          "fields": "",
+          "values": false
         },
-        "orientation": "horizontal",
-        "showValue": "auto",
-        "stacking": "normal",
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        },
-        "xField": "uf",
-        "xTickLabelRotation": 0,
-        "xTickLabelSpacing": 0
+        "textMode": "auto"
       },
       "pluginVersion": "10.0.0",
       "targets": [
@@ -400,10 +896,267 @@
           },
           "format": 1,
           "refId": "A",
-          "rawSQL": "SELECT COALESCE(NULLIF(TRIM(uf), ''), '(sem UF)') AS uf,\n       CAST(SUM(CASE WHEN LOWER(TRIM(CAST(ceis_sancionado AS VARCHAR))) = 'true' THEN 1 ELSE 0 END) AS BIGINT) AS ceis_sim,\n       CAST(SUM(CASE WHEN LOWER(TRIM(CAST(ceis_sancionado AS VARCHAR))) <> 'true' OR ceis_sancionado IS NULL THEN 1 ELSE 0 END) AS BIGINT) AS ceis_nao\nFROM final_output\nGROUP BY 1\nORDER BY (ceis_sim + ceis_nao) DESC\nLIMIT 15"
+          "rawSQL": "SELECT MAX_BY(uf, ceis_pct) AS uf FROM (\n  SELECT COALESCE(NULLIF(TRIM(uf), ''), '(sem UF)') AS uf,\n    100.0 * SUM(CASE WHEN LOWER(TRIM(CAST(ceis_sancionado AS VARCHAR))) = 'true' THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0) AS ceis_pct\n  FROM final_output WHERE UPPER(TRIM(status)) = 'ATIVA' \n  AND ('${filtro_uf}' = 'Todos' OR COALESCE(NULLIF(TRIM(uf), ''), '(sem UF)') = '${filtro_uf}')\n  AND ('${filtro_porte}' = 'Todos' OR COALESCE(NULLIF(TRIM(porte), ''), '(sem porte)') = '${filtro_porte}')\n\n  GROUP BY 1 HAVING COUNT(*) >= 30\n) t"
         }
       ],
-      "title": "CEIS por Capital",
+      "title": "UF com maior taxa CEIS (ATIVAS, n≥30)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "${DS_ATHENA}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 3
+              }
+            ]
+          },
+          "unit": "percent",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 8,
+        "x": 8,
+        "y": 33
+      },
+      "id": 27,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "${DS_ATHENA}"
+          },
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "${ATHENA_DB}",
+            "region": "__default"
+          },
+          "format": 1,
+          "refId": "A",
+          "rawSQL": "SELECT 100.0 * SUM(CASE WHEN LOWER(TRIM(CAST(ceis_sancionado AS VARCHAR))) = 'true' THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0) AS pct\nFROM final_output WHERE UPPER(TRIM(status)) = 'ATIVA' \n  AND ('${filtro_uf}' = 'Todos' OR COALESCE(NULLIF(TRIM(uf), ''), '(sem UF)') = '${filtro_uf}')\n  AND ('${filtro_porte}' = 'Todos' OR COALESCE(NULLIF(TRIM(porte), ''), '(sem porte)') = '${filtro_porte}')\n"
+        }
+      ],
+      "title": "Taxa CEIS (ATIVAS filtradas)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "${DS_ATHENA}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 3
+              }
+            ]
+          },
+          "unit": "percent",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 8,
+        "x": 16,
+        "y": 33
+      },
+      "id": 28,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "${DS_ATHENA}"
+          },
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "${ATHENA_DB}",
+            "region": "__default"
+          },
+          "format": 1,
+          "refId": "A",
+          "rawSQL": "SELECT 100.0 * SUM(CASE WHEN LOWER(TRIM(CAST(cnep_sancionado AS VARCHAR))) = 'true' THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0) AS pct\nFROM final_output WHERE UPPER(TRIM(status)) = 'ATIVA' \n  AND ('${filtro_uf}' = 'Todos' OR COALESCE(NULLIF(TRIM(uf), ''), '(sem UF)') = '${filtro_uf}')\n  AND ('${filtro_porte}' = 'Todos' OR COALESCE(NULLIF(TRIM(porte), ''), '(sem porte)') = '${filtro_porte}')\n"
+        }
+      ],
+      "title": "Taxa CNEP (ATIVAS filtradas)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "${DS_ATHENA}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-RdYlGr"
+          },
+          "custom": {
+            "fillOpacity": 85
+          },
+          "decimals": 2,
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 3
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "total"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": false,
+                  "viz": true
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ceis_qtd"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": false,
+                  "viz": true
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 37
+      },
+      "id": 13,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.85,
+        "legend": {
+          "showLegend": true
+        },
+        "orientation": "horizontal",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "multi"
+        },
+        "xField": "uf"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "${DS_ATHENA}"
+          },
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "${ATHENA_DB}",
+            "region": "__default"
+          },
+          "format": 1,
+          "refId": "A",
+          "rawSQL": "SELECT COALESCE(NULLIF(TRIM(uf), ''), '(sem UF)') AS uf,\n  CAST(COUNT(*) AS BIGINT) AS total,\n  CAST(SUM(CASE WHEN LOWER(TRIM(CAST(ceis_sancionado AS VARCHAR))) = 'true' THEN 1 ELSE 0 END) AS BIGINT) AS ceis_qtd,\n  100.0 * SUM(CASE WHEN LOWER(TRIM(CAST(ceis_sancionado AS VARCHAR))) = 'true' THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0) AS ceis_pct\nFROM final_output WHERE UPPER(TRIM(status)) = 'ATIVA' \n  AND ('${filtro_uf}' = 'Todos' OR COALESCE(NULLIF(TRIM(uf), ''), '(sem UF)') = '${filtro_uf}')\n  AND ('${filtro_porte}' = 'Todos' OR COALESCE(NULLIF(TRIM(porte), ''), '(sem porte)') = '${filtro_porte}')\n\nGROUP BY 1 HAVING COUNT(*) >= 30 ORDER BY ceis_pct DESC LIMIT 15"
+        }
+      ],
+      "title": "Taxa CEIS por UF (ATIVAS, mín. 30 empresas)",
       "type": "barchart"
     },
     {
@@ -420,10 +1173,8 @@
             "align": "auto",
             "cellOptions": {
               "type": "auto"
-            },
-            "inspect": false
+            }
           },
-          "mappings": [],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -498,24 +1249,18 @@
         ]
       },
       "gridPos": {
-        "h": 8,
+        "h": 10,
         "w": 24,
         "x": 0,
-        "y": 27
+        "y": 45
       },
       "id": 14,
       "options": {
         "cellHeight": "sm",
         "footer": {
-          "countRows": false,
-          "fields": "",
-          "reducer": [
-            "sum"
-          ],
           "show": false
         },
-        "showHeader": true,
-        "sortBy": []
+        "showHeader": true
       },
       "pluginVersion": "10.0.0",
       "targets": [
@@ -531,11 +1276,24 @@
           },
           "format": 1,
           "refId": "A",
-          "rawSQL": "SELECT cnpj_formatado, razao_social, uf, municipio, status,\n       ceis_sancionado, cnep_sancionado, substr(COALESCE(CAST(ceis_detalhes AS VARCHAR), ''), 1, 120) AS ceis_resumo,\n       substr(COALESCE(CAST(cnep_detalhes AS VARCHAR), ''), 1, 120) AS cnep_resumo\nFROM final_output\nWHERE (LOWER(TRIM(CAST(ceis_sancionado AS VARCHAR))) = 'true') OR (LOWER(TRIM(CAST(cnep_sancionado AS VARCHAR))) = 'true')\nORDER BY uf, razao_social\nLIMIT 500"
+          "rawSQL": "SELECT cnpj_formatado, razao_social, uf, municipio, status, porte,\n       ceis_sancionado, cnep_sancionado,\n       substr(COALESCE(CAST(ceis_detalhes AS VARCHAR), ''), 1, 120) AS ceis_resumo,\n       substr(COALESCE(CAST(cnep_detalhes AS VARCHAR), ''), 1, 120) AS cnep_resumo\nFROM final_output\nWHERE ((LOWER(TRIM(CAST(ceis_sancionado AS VARCHAR))) = 'true') OR (LOWER(TRIM(CAST(cnep_sancionado AS VARCHAR))) = 'true'))\n  \n  AND ('${filtro_uf}' = 'Todos' OR COALESCE(NULLIF(TRIM(uf), ''), '(sem UF)') = '${filtro_uf}')\n  AND ('${filtro_status}' = 'Todos' OR COALESCE(NULLIF(TRIM(status), ''), '(sem status)') = '${filtro_status}')\n  AND ('${filtro_porte}' = 'Todos' OR COALESCE(NULLIF(TRIM(porte), ''), '(sem porte)') = '${filtro_porte}')\n\nORDER BY uf, razao_social LIMIT 500"
         }
       ],
-      "title": "Registros com alerta CEIS ou CNEP (detalhado)",
+      "title": "Registros com alerta CEIS ou CNEP (ação imediata)",
       "type": "table"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 55
+      },
+      "id": 105,
+      "panels": [],
+      "title": "Diagnóstico: natureza jurídica × risco",
+      "type": "row"
     },
     {
       "datasource": {
@@ -548,59 +1306,51 @@
             "mode": "palette-classic"
           },
           "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "fillOpacity": 80,
-            "gradientMode": "hue",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineWidth": 1,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
+            "fillOpacity": 80
           },
-          "mappings": [],
-          "unit": "none"
+          "unit": "percent",
+          "decimals": 2
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "qtd"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 9,
         "w": 24,
         "x": 0,
-        "y": 35
+        "y": 56
       },
       "id": 17,
       "options": {
         "barRadius": 0,
-        "barWidth": 0.88,
-        "fullHighlight": false,
-        "groupWidth": 0.7,
         "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false
+          "showLegend": true
         },
         "orientation": "horizontal",
         "showValue": "auto",
-        "stacking": "none",
         "tooltip": {
-          "mode": "single",
-          "sort": "none"
+          "mode": "multi"
         },
-        "xField": "natureza",
-        "xTickLabelRotation": 0,
-        "xTickLabelSpacing": 100
+        "xField": "natureza"
       },
       "pluginVersion": "10.0.0",
       "targets": [
@@ -616,10 +1366,10 @@
           },
           "format": 1,
           "refId": "A",
-          "rawSQL": "SELECT COALESCE(NULLIF(TRIM(natureza_juridica), ''), '(não informado)') AS natureza, CAST(COUNT(*) AS BIGINT) AS qtd FROM final_output GROUP BY 1 ORDER BY qtd DESC LIMIT 15"
+          "rawSQL": "SELECT COALESCE(NULLIF(TRIM(natureza_juridica), ''), '(não informado)') AS natureza,\n  CAST(COUNT(*) AS BIGINT) AS qtd,\n  100.0 * SUM(CASE WHEN (LOWER(TRIM(CAST(ceis_sancionado AS VARCHAR))) = 'true') OR (LOWER(TRIM(CAST(cnep_sancionado AS VARCHAR))) = 'true') THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0) AS pct_alerta\nFROM final_output WHERE 1=1 \n  AND ('${filtro_uf}' = 'Todos' OR COALESCE(NULLIF(TRIM(uf), ''), '(sem UF)') = '${filtro_uf}')\n  AND ('${filtro_status}' = 'Todos' OR COALESCE(NULLIF(TRIM(status), ''), '(sem status)') = '${filtro_status}')\n  AND ('${filtro_porte}' = 'Todos' OR COALESCE(NULLIF(TRIM(porte), ''), '(sem porte)') = '${filtro_porte}')\n\nGROUP BY 1 HAVING COUNT(*) >= 20 ORDER BY pct_alerta DESC LIMIT 15"
         }
       ],
-      "title": "Principais naturezas jurídicas",
+      "title": "Natureza jurídica: % alerta CEIS/CNEP + volume",
       "type": "barchart"
     }
   ],
@@ -658,17 +1408,118 @@
         "query": "arq_infra_db",
         "skipUrlSync": false,
         "type": "constant"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "Todos",
+          "value": "Todos"
+        },
+        "datasource": {
+          "type": "grafana-athena-datasource",
+          "uid": "${DS_ATHENA}"
+        },
+        "definition": "",
+        "hide": 0,
+        "includeAll": true,
+        "allValue": "Todos",
+        "label": "UF",
+        "multi": false,
+        "name": "filtro_uf",
+        "options": [],
+        "query": {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "${ATHENA_DB}",
+            "region": "__default"
+          },
+          "format": 1,
+          "rawSQL": "SELECT 'Todos' AS v UNION ALL SELECT DISTINCT COALESCE(NULLIF(TRIM(uf), ''), '(sem UF)') AS v FROM final_output WHERE COALESCE(NULLIF(TRIM(uf), ''), '(sem UF)') IS NOT NULL ORDER BY 1"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "Todos",
+          "value": "Todos"
+        },
+        "datasource": {
+          "type": "grafana-athena-datasource",
+          "uid": "${DS_ATHENA}"
+        },
+        "definition": "",
+        "hide": 0,
+        "includeAll": true,
+        "allValue": "Todos",
+        "label": "Status cadastral",
+        "multi": false,
+        "name": "filtro_status",
+        "options": [],
+        "query": {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "${ATHENA_DB}",
+            "region": "__default"
+          },
+          "format": 1,
+          "rawSQL": "SELECT 'Todos' AS v UNION ALL SELECT DISTINCT COALESCE(NULLIF(TRIM(status), ''), '(sem status)') AS v FROM final_output WHERE COALESCE(NULLIF(TRIM(status), ''), '(sem status)') IS NOT NULL ORDER BY 1"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "Todos",
+          "value": "Todos"
+        },
+        "datasource": {
+          "type": "grafana-athena-datasource",
+          "uid": "${DS_ATHENA}"
+        },
+        "definition": "",
+        "hide": 0,
+        "includeAll": true,
+        "allValue": "Todos",
+        "label": "Porte",
+        "multi": false,
+        "name": "filtro_porte",
+        "options": [],
+        "query": {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "${ATHENA_DB}",
+            "region": "__default"
+          },
+          "format": 1,
+          "rawSQL": "SELECT 'Todos' AS v UNION ALL SELECT DISTINCT COALESCE(NULLIF(TRIM(porte), ''), '(sem porte)') AS v FROM final_output WHERE COALESCE(NULLIF(TRIM(porte), ''), '(sem porte)') IS NOT NULL ORDER BY 1"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
       }
     ]
   },
   "time": {
-    "from": "now-2y",
+    "from": "now-1h",
     "to": "now"
   },
-  "timepicker": {},
+  "timepicker": {
+    "hidden": true
+  },
   "timezone": "America/Sao_Paulo",
   "title": "PrimeLead – Analista SDR | Triagem e operação CEIS/CNEP",
   "uid": "primelead-cnpj-kpi-athena-sdr",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }
