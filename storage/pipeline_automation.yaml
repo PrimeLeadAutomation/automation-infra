@@ -1,4 +1,4 @@
-AWSTemplateFormatVersion: '2010-09-09'
+﻿AWSTemplateFormatVersion: '2010-09-09'
 Description: Camada de Armazenamento (Data Lake)
 
 Resources:
@@ -7,7 +7,7 @@ Resources:
     Type: AWS::S3::Bucket
     DependsOn: TransformToSilverPermission
     Properties:
-      BucketName: primelead-bkt-bronze
+      BucketName: primelead-bkt-bronze-67
       VersioningConfiguration:
         Status: Enabled
       NotificationConfiguration:
@@ -24,7 +24,7 @@ Resources:
     Type: AWS::S3::Bucket
     DependsOn: TransformToGoldPermission
     Properties:
-      BucketName: primelead-bkt-prata
+      BucketName: primelead-bkt-prata-67
       VersioningConfiguration:
         Status: Enabled
       NotificationConfiguration:
@@ -40,7 +40,7 @@ Resources:
   GoldBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: primelead-bkt-gold
+      BucketName: primelead-bkt-gold-67
       VersioningConfiguration:
         Status: Enabled
 
@@ -54,7 +54,7 @@ Resources:
   AthenaWorkGroup:
     Type: AWS::Athena::WorkGroup
     Properties:
-      # Nome global na conta — sufixo evita AlreadyExists 
+      # Nome global na conta â€” sufixo evita AlreadyExists 
       Name: !Sub arq-infra-wg-${AWS::AccountId}
       WorkGroupConfiguration:
         ResultConfiguration:
@@ -70,10 +70,9 @@ Resources:
       Timeout: 60
       Environment:
         Variables:
-          SNS_TOPIC_ARN: !ImportValue arq-infra-alert-topic-arn
-          ETL_STEP: Bronze→Silver
-          BUCKET_BRONZE: primelead-bkt-bronze
-          BUCKET_SILVER: primelead-bkt-prata
+          ETL_STEP: Bronzeâ†’Silver
+          BUCKET_BRONZE: primelead-bkt-bronze-67
+          BUCKET_SILVER: primelead-bkt-prata-67
           LAMBDA_GOLD: lambda-brasilapi-gold-merger
       Code:
         ZipFile: |
@@ -82,8 +81,6 @@ Resources:
           import boto3
           from botocore.exceptions import ClientError
 
-          sns = boto3.client("sns")
-
           def _event_brief(event):
               lines = []
               for rec in event.get("Records") or []:
@@ -91,8 +88,8 @@ Resources:
                   b = (s3.get("bucket") or {}).get("name")
                   k = (s3.get("object") or {}).get("key", "")
                   if b and k:
-                      lines.append(f"  • s3://{b}/{k}")
-              return "\n".join(lines) if lines else "  • (nenhum objeto S3 listado no evento)"
+                      lines.append(f"  â€¢ s3://{b}/{k}")
+              return "\n".join(lines) if lines else "  â€¢ (nenhum objeto S3 listado no evento)"
 
           def _env_campos():
               out = {}
@@ -123,10 +120,10 @@ Resources:
               )
               campos = summary.get("campos") or {}
               if campos:
-                  body += "\nResumo:\n" + "\n".join(f"  • {k}: {v}" for k, v in campos.items())
+                  body += "\nResumo:\n" + "\n".join(f"  â€¢ {k}: {v}" for k, v in campos.items())
               sns.publish(
                   TopicArn=arn,
-                  Subject=f"ETL OK — {step}",
+                  Subject=f"ETL OK â€” {step}",
                   Message=body,
               )
 
@@ -138,32 +135,27 @@ Resources:
               body = (
                   "Tratamento de dados finalizado com ERRO.\n\n"
                   f"Etapa: {step}\n"
-                  f"Código do erro: {code}\n"
+                  f"CÃ³digo do erro: {code}\n"
                   f"Mensagem: {message}\n"
               )
               sns.publish(
                   TopicArn=arn,
-                  Subject=f"[URGENTE] Erro na ETL — {step}",
+                  Subject=f"[URGENTE] Erro na ETL â€” {step}",
                   Message=body,
               )
 
           def handler(event, context):
               print("Evento recebido:", json.dumps(event))
               try:
-                  # TODO: lógica de transformação Bronze -> Silver, implementada no lambda prata/process-bronze.py
+                  # TODO: lÃ³gica de transformaÃ§Ã£o Bronze -> Silver, implementada no lambda prata/process-bronze.py
                   campos = _env_campos()
                   campos["RequestId"] = getattr(context, "aws_request_id", "(n/d)")
-                  campos["Função"] = getattr(context, "function_name", "(n/d)")
-                  notify_success({
-                      "status": "sucesso",
-                      "detalhe_evento": _event_brief(event),
-                      "campos": campos,
-                  })
+                  campos["FunÃ§Ã£o"] = getattr(context, "function_name", "(n/d)")
+                  print("Sucesso")
                   return {"statusCode": 200}
               except Exception as e:
                   print("Falha na ETL:", repr(e))
                   code, msg = _error_parts(e)
-                  notify_error(code, msg)
                   return {"statusCode": 500, "body": json.dumps({"erro": msg})}
 
   TransformToSilverPermission:
@@ -172,7 +164,7 @@ Resources:
       FunctionName: !GetAtt TransformToSilverFunction.Arn
       Action: lambda:InvokeFunction
       Principal: s3.amazonaws.com
-      SourceArn: arn:aws:s3:::primelead-bkt-bronze
+      SourceArn: arn:aws:s3:::primelead-bkt-bronze-67
 
   TransformToGoldFunction:
     Type: AWS::Lambda::Function
@@ -184,18 +176,15 @@ Resources:
       Timeout: 60
       Environment:
         Variables:
-          SNS_TOPIC_ARN: !ImportValue arq-infra-alert-topic-arn
-          ETL_STEP: Silver→Gold
-          BUCKET_SILVER: primelead-bkt-prata
-          BUCKET_GOLD: primelead-bkt-gold
+          ETL_STEP: Silverâ†’Gold
+          BUCKET_SILVER: primelead-bkt-prata-67
+          BUCKET_GOLD: primelead-bkt-gold-67
       Code:
         ZipFile: |
           import json
           import os
           import boto3
           from botocore.exceptions import ClientError
-
-          sns = boto3.client("sns")
 
           def _event_brief(event):
               lines = []
@@ -204,8 +193,8 @@ Resources:
                   b = (s3.get("bucket") or {}).get("name")
                   k = (s3.get("object") or {}).get("key", "")
                   if b and k:
-                      lines.append(f"  • s3://{b}/{k}")
-              return "\n".join(lines) if lines else "  • (nenhum objeto S3 listado no evento)"
+                      lines.append(f"  â€¢ s3://{b}/{k}")
+              return "\n".join(lines) if lines else "  â€¢ (nenhum objeto S3 listado no evento)"
 
           def _env_campos():
               out = {}
@@ -236,10 +225,10 @@ Resources:
               )
               campos = summary.get("campos") or {}
               if campos:
-                  body += "\nResumo:\n" + "\n".join(f"  • {k}: {v}" for k, v in campos.items())
+                  body += "\nResumo:\n" + "\n".join(f"  â€¢ {k}: {v}" for k, v in campos.items())
               sns.publish(
                   TopicArn=arn,
-                  Subject=f"ETL OK — {step}",
+                  Subject=f"ETL OK â€” {step}",
                   Message=body,
               )
 
@@ -251,32 +240,27 @@ Resources:
               body = (
                   "Tratamento de dados finalizado com ERRO.\n\n"
                   f"Etapa: {step}\n"
-                  f"Código do erro: {code}\n"
+                  f"CÃ³digo do erro: {code}\n"
                   f"Mensagem: {message}\n"
               )
               sns.publish(
                   TopicArn=arn,
-                  Subject=f"[URGENTE] Erro na ETL — {step}",
+                  Subject=f"[URGENTE] Erro na ETL â€” {step}",
                   Message=body,
               )
 
           def handler(event, context):
               print("Evento recebido:", json.dumps(event))
               try:
-                  # TODO: lógica de transformação Silver -> Gold, implementada no lambda gold/concat-gold.py
+                  # TODO: lÃ³gica de transformaÃ§Ã£o Silver -> Gold, implementada no lambda gold/concat-gold.py
                   campos = _env_campos()
                   campos["RequestId"] = getattr(context, "aws_request_id", "(n/d)")
-                  campos["Função"] = getattr(context, "function_name", "(n/d)")
-                  notify_success({
-                      "status": "sucesso",
-                      "detalhe_evento": _event_brief(event),
-                      "campos": campos,
-                  })
+                  campos["FunÃ§Ã£o"] = getattr(context, "function_name", "(n/d)")
+                  print("Sucesso")
                   return {"statusCode": 200}
               except Exception as e:
                   print("Falha na ETL:", repr(e))
                   code, msg = _error_parts(e)
-                  notify_error(code, msg)
                   return {"statusCode": 500, "body": json.dumps({"erro": msg})}
 
   TransformToGoldPermission:
@@ -285,7 +269,7 @@ Resources:
       FunctionName: !GetAtt TransformToGoldFunction.Arn
       Action: lambda:InvokeFunction
       Principal: s3.amazonaws.com
-      SourceArn: arn:aws:s3:::primelead-bkt-prata
+      SourceArn: arn:aws:s3:::primelead-bkt-prata-67
 
 Outputs:
   BronzeBucketName:
@@ -298,13 +282,13 @@ Outputs:
     Value: !Ref GoldBucket
 
   TransformToSilverArn:
-    Description: ARN da função Lambda transform-to-silver para cross-stack
+    Description: ARN da funÃ§Ã£o Lambda transform-to-silver para cross-stack
     Value: !GetAtt TransformToSilverFunction.Arn
     Export:
       Name: pilha-armazenamento-transform-to-silver-arn
 
   TransformToGoldArn:
-    Description: ARN da função Lambda transform-to-gold para cross-stack
+    Description: ARN da funÃ§Ã£o Lambda transform-to-gold para cross-stack
     Value: !GetAtt TransformToGoldFunction.Arn
     Export:
       Name: pilha-armazenamento-transform-to-gold-arn
