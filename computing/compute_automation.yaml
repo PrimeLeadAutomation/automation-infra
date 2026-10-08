@@ -13,6 +13,15 @@ Parameters:
     Type: String
     Default: LabInstanceProfile
     Description: Nome do instance profile já existente.
+  GitHubToken:
+    Type: String
+    NoEcho: true
+    Description: Token do GitHub com leitura nos repos back-end e database_sql.
+  DbPassword:
+    Type: String
+    NoEcho: true
+    MinLength: 8
+    Description: Senha do MySQL do backend (usuário da aplicação e root).
 
 Resources:
 
@@ -34,6 +43,21 @@ Resources:
           FromPort: 3000
           ToPort: 3000
           CidrIp: 0.0.0.0/0
+
+  PrivateSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Acesso interno da VPC ao backend (SSH e API)
+      VpcId: !ImportValue VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 10.0.0.0/24
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 10.0.0.0/24
 
   PublicInstance:
     Type: AWS::EC2::Instance
@@ -222,11 +246,106 @@ Resources:
       KeyName: !Ref KeyName
       SubnetId: !ImportValue PrivateSubnetId
       SecurityGroupIds:
-        - !Ref SecurityGroup
+        - !Ref PrivateSecurityGroup
       ImageId: !Ref LatestAmiId
       Tags:
         - Key: Name
           Value: arq-infra-ec2-private
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euxo pipefail
+          exec > >(tee /var/log/userdata-backend.log) 2>&1
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update -y
+
+          # Remove any old docker versions
+          apt-get remove -y docker.io docker-compose docker-compose-v2 podman-docker containerd runc || true
+
+          # Install Docker's official GPG key and required packages
+          apt-get install -y ca-certificates curl git
+          install -m 0755 -d /etc/apt/keyrings
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+          chmod a+r /etc/apt/keyrings/docker.asc
+
+          # Add the repository to Apt sources
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | tee /etc/apt/sources.list.d/docker.sources > /dev/null
+
+          apt-get update -y
+          apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+          systemctl enable --now docker
+          usermod -aG docker ubuntu || true
+
+          # Setup backend
+          mkdir -p /opt/backend
+          cd /opt/backend
+
+          set +x
+          git clone https://x-access-token:${GitHubToken}@github.com/PrimeLeadAutomation/back-end.git back-end
+          git clone https://x-access-token:${GitHubToken}@github.com/PrimeLeadAutomation/database_sql.git database_sql
+          git -C back-end remote set-url origin https://github.com/PrimeLeadAutomation/back-end.git
+          git -C database_sql remote set-url origin https://github.com/PrimeLeadAutomation/database_sql.git
+
+          cat << 'EOF' > .env
+          DB_NAME=PrimeLeadAutomation
+          DB_USER=primelead_user
+          DB_PASSWORD=${DbPassword}
+          TZ=America/Sao_Paulo
+          EOF
+          chmod 600 .env
+          set -x
+
+          cat << 'EOF' > docker-compose.yml
+          services:
+            mysql:
+              image: mysql:8.0
+              container_name: backend_mysql
+              restart: always
+              environment:
+                - MYSQL_ROOT_PASSWORD=${!DB_PASSWORD}
+                - MYSQL_DATABASE=${!DB_NAME}
+                - MYSQL_USER=${!DB_USER}
+                - MYSQL_PASSWORD=${!DB_PASSWORD}
+                - TZ=${!TZ}
+              volumes:
+                - mysql_data:/var/lib/mysql
+                - ./database_sql/primelead_automation_script.sql:/docker-entrypoint-initdb.d/init.sql:ro
+              healthcheck:
+                test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+                interval: 10s
+                timeout: 5s
+                retries: 10
+                start_period: 30s
+              networks:
+                - backend_network
+
+            backend:
+              build: ./back-end
+              container_name: backend_app
+              restart: always
+              ports:
+                - "8080:8080"
+              environment:
+                - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/${!DB_NAME}
+                - SPRING_DATASOURCE_USERNAME=${!DB_USER}
+                - SPRING_DATASOURCE_PASSWORD=${!DB_PASSWORD}
+                - TZ=${!TZ}
+              depends_on:
+                mysql:
+                  condition: service_healthy
+              networks:
+                - backend_network
+
+          networks:
+            backend_network:
+              driver: bridge
+
+          volumes:
+            mysql_data:
+          EOF
+
+          docker compose up -d --build
 
 
 Outputs:
@@ -241,3 +360,7 @@ Outputs:
 
   PrivateInstanceId:
     Value: !Ref PrivateInstance
+
+  PrivateInstancePrivateIp:
+    Description: IP privado do backend — API em http://<IP>:8080 (apenas dentro da VPC)
+    Value: !GetAtt PrivateInstance.PrivateIp
