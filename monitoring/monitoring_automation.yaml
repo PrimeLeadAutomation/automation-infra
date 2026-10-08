@@ -79,3 +79,21 @@ Resources:
               ]
             }
           - InstanceId: !ImportValue PublicInstanceId
+
+  HighCPUAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "CPU-High-Alarm-${AWS::Region}"
+      AlarmDescription: "Alerta quando o uso de CPU atingir 5%"
+      Namespace: AWS/EC2
+      MetricName: CPUUtilization
+      Statistic: Average
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: InstanceId
+          Value: !ImportValue PublicInstanceId
+      AlarmActions:
+        - !ImportValue arq-infra-alert-topic-arn
