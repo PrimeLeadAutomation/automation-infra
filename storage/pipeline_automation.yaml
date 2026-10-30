@@ -7,7 +7,7 @@ Resources:
     Type: AWS::S3::Bucket
     DependsOn: TransformToSilverPermission
     Properties:
-      BucketName: primelead-bkt-bronze-67
+      BucketName: primelead-bkt-bronze-69
       VersioningConfiguration:
         Status: Enabled
       NotificationConfiguration:
@@ -24,7 +24,7 @@ Resources:
     Type: AWS::S3::Bucket
     DependsOn: TransformToGoldPermission
     Properties:
-      BucketName: primelead-bkt-prata-67
+      BucketName: primelead-bkt-prata-69
       VersioningConfiguration:
         Status: Enabled
       NotificationConfiguration:
@@ -40,7 +40,7 @@ Resources:
   GoldBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: primelead-bkt-gold-67
+      BucketName: primelead-bkt-gold-69
       VersioningConfiguration:
         Status: Enabled
 
@@ -71,8 +71,8 @@ Resources:
       Environment:
         Variables:
           ETL_STEP: Bronzeâ†’Silver
-          BUCKET_BRONZE: primelead-bkt-bronze-67
-          BUCKET_SILVER: primelead-bkt-prata-67
+          BUCKET_BRONZE: primelead-bkt-bronze-69
+          BUCKET_SILVER: primelead-bkt-prata-69
           LAMBDA_GOLD: lambda-brasilapi-gold-merger
       Code:
         ZipFile: |
@@ -164,7 +164,7 @@ Resources:
       FunctionName: !GetAtt TransformToSilverFunction.Arn
       Action: lambda:InvokeFunction
       Principal: s3.amazonaws.com
-      SourceArn: arn:aws:s3:::primelead-bkt-bronze-67
+      SourceArn: arn:aws:s3:::primelead-bkt-bronze-69
 
   TransformToGoldFunction:
     Type: AWS::Lambda::Function
@@ -177,8 +177,8 @@ Resources:
       Environment:
         Variables:
           ETL_STEP: Silverâ†’Gold
-          BUCKET_SILVER: primelead-bkt-prata-67
-          BUCKET_GOLD: primelead-bkt-gold-67
+          BUCKET_SILVER: primelead-bkt-prata-69
+          BUCKET_GOLD: primelead-bkt-gold-69
       Code:
         ZipFile: |
           import json
@@ -269,7 +269,7 @@ Resources:
       FunctionName: !GetAtt TransformToGoldFunction.Arn
       Action: lambda:InvokeFunction
       Principal: s3.amazonaws.com
-      SourceArn: arn:aws:s3:::primelead-bkt-prata-67
+      SourceArn: arn:aws:s3:::primelead-bkt-prata-69
 
 Outputs:
   BronzeBucketName:

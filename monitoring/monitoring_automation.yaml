@@ -1,11 +1,11 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Camada de Monitoramento - CloudWatch Dashboard para EC2 Pública
+Description: Monitoramento do frontend escalavel pelo ALB e Auto Scaling Group
 
 Resources:
-  PublicEC2Dashboard:
+  FrontendDashboard:
     Type: AWS::CloudWatch::Dashboard
     Properties:
-      DashboardName: !Sub "Public-EC2-Monitoring-${AWS::Region}"
+      DashboardName: !Sub "Frontend-ALB-Monitoring-${AWS::Region}"
       DashboardBody:
         Fn::Sub:
           - |
@@ -19,12 +19,11 @@ Resources:
                   "height": 6,
                   "properties": {
                     "metrics": [
-                      [ "AWS/EC2", "CPUUtilization", "InstanceId", "${InstanceId}" ]
+                      [ "AWS/ApplicationELB", "RequestCount", "LoadBalancer", "${LoadBalancerFullName}" ]
                     ],
                     "view": "timeSeries",
-                    "stacked": false,
                     "region": "${AWS::Region}",
-                    "title": "Percentual de Uso da CPU",
+                    "title": "Requisicoes recebidas pelo ALB",
                     "period": 60
                   }
                 },
@@ -36,13 +35,12 @@ Resources:
                   "height": 6,
                   "properties": {
                     "metrics": [
-                      [ "AWS/EC2", "NetworkIn", "InstanceId", "${InstanceId}" ],
-                      [ ".", "NetworkOut", ".", "." ]
+                      [ "AWS/AutoScaling", "GroupInServiceInstances", "AutoScalingGroupName", "${AutoScalingGroupName}" ],
+                      [ ".", "GroupDesiredCapacity", ".", "." ]
                     ],
                     "view": "timeSeries",
-                    "stacked": false,
                     "region": "${AWS::Region}",
-                    "title": "Tráfego de Rede (In/Out)",
+                    "title": "Capacidade do Auto Scaling Group",
                     "period": 60
                   }
                 },
@@ -50,50 +48,39 @@ Resources:
                   "type": "metric",
                   "x": 0,
                   "y": 6,
-                  "width": 8,
+                  "width": 12,
                   "height": 6,
                   "properties": {
                     "metrics": [
-                      [ "AWS/EC2", "EBSByteBalance%", "InstanceId", "${InstanceId}" ]
+                      [ "AWS/AutoScaling", "GroupInServiceInstances", "AutoScalingGroupName", "${AutoScalingGroupName}" ]
                     ],
                     "view": "singleValue",
                     "region": "${AWS::Region}",
-                    "title": "EBS Byte Balance %",
-                    "period": 300
-                  }
-                },
-                {
-                  "type": "log",
-                  "x": 8,
-                  "y": 6,
-                  "width": 16,
-                  "height": 6,
-                  "properties": {
-                    "query": "SOURCE logGroups(namePrefix: [\"/ec2/syslog\"], class: \"STANDARD\") START=-604800s END=0s | fields @timestamp, @log, @message | sort @timestamp desc | limit 10000",
-                    "region": "${AWS::Region}",
-                    "stacked": false,
-                    "title": "Logs Analytics - Syslog",
-                    "view": "table"
+                    "title": "Instancias frontend ativas",
+                    "period": 60
                   }
                 }
               ]
             }
-          - InstanceId: !ImportValue PublicInstanceId
+          - LoadBalancerFullName: !ImportValue FrontendLoadBalancerFullName
+            AutoScalingGroupName: !ImportValue FrontendAutoScalingGroupName
 
-  HighCPUAlarm:
+  FrontendUnhealthyHostsAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: !Sub "CPU-High-Alarm-${AWS::Region}"
-      AlarmDescription: "Alerta quando o uso de CPU atingir 5%"
-      Namespace: AWS/EC2
-      MetricName: CPUUtilization
+      AlarmName: !Sub "Frontend-Unhealthy-Hosts-${AWS::Region}"
+      AlarmDescription: Alerta quando o ALB detecta um frontend indisponivel.
+      Namespace: AWS/ApplicationELB
+      MetricName: UnHealthyHostCount
       Statistic: Average
       Period: 60
       EvaluationPeriods: 1
-      Threshold: 5
+      Threshold: 1
       ComparisonOperator: GreaterThanOrEqualToThreshold
       Dimensions:
-        - Name: InstanceId
-          Value: !ImportValue PublicInstanceId
+        - Name: TargetGroup
+          Value: !ImportValue FrontendTargetGroupFullName
+        - Name: LoadBalancer
+          Value: !ImportValue FrontendLoadBalancerFullName
       AlarmActions:
         - !ImportValue arq-infra-alert-topic-arn

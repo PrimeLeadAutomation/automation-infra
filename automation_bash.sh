@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Ordem: network → message (exporta SNS) → compute (alarmes usam o tópico) → storage (Lambdas exportadas pelo compute).
+# Ordem: network → message → compute → monitoring → storage.
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -18,6 +18,11 @@ aws cloudformation create-stack \
   --template-body file://computing/compute_automation.yaml \
   --parameters ParameterKey=KeyName,ParameterValue=myssh
 aws cloudformation wait stack-create-complete --stack-name compute-stack
+
+aws cloudformation create-stack \
+  --stack-name monitoring-stack \
+  --template-body file://monitoring/monitoring_automation.yaml
+aws cloudformation wait stack-create-complete --stack-name monitoring-stack
 
 aws cloudformation create-stack \
   --stack-name storage-stack \

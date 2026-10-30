@@ -13,8 +13,34 @@ Parameters:
     Type: String
     Default: LabInstanceProfile
     Description: Nome do instance profile já existente.
+  FrontendImage:
+    Type: String
+    Default: ayrtoncasa/primelead-frontend:1.2
+    Description: Imagem publicada do front-end PrimeLead.
 
 Resources:
+
+  LoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Acesso HTTP publico ao Application Load Balancer
+      VpcId: !ImportValue VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+
+  FrontendSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Acesso HTTP ao frontend somente pelo ALB
+      VpcId: !ImportValue VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
 
   SecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -34,17 +60,36 @@ Resources:
           FromPort: 3000
           ToPort: 3000
           CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 5678
+          ToPort: 5678
+          CidrIp: 0.0.0.0/0
+
+  FrontendToBackendIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref SecurityGroup
+      IpProtocol: tcp
+      FromPort: 8081
+      ToPort: 8081
+      SourceSecurityGroupId: !Ref FrontendSecurityGroup
 
   PublicInstance:
     Type: AWS::EC2::Instance
     Properties:
-      InstanceType: t3.small
+      InstanceType: t3.large
       KeyName: !Ref KeyName
       SubnetId: !ImportValue PublicSubnetId
       IamInstanceProfile: !Ref Ec2InstanceProfileName
       SecurityGroupIds:
         - !Ref SecurityGroup
       ImageId: !Ref LatestAmiId
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: 50
+            VolumeType: gp3
+            DeleteOnTermination: true
       Tags:
         - Key: Name
           Value: arq-infra-ec2-public
@@ -116,7 +161,7 @@ Resources:
               container_name: n8n_app
               restart: always
               ports:
-                - "80:5678"
+                - "5678:5678"
               environment:
                 - DB_TYPE=postgresdb
                 - DB_POSTGRESDB_HOST=db
@@ -127,16 +172,16 @@ Resources:
                 - N8N_BASIC_AUTH_ACTIVE=true
                 - N8N_BASIC_AUTH_USER=user
                 - N8N_BASIC_AUTH_PASSWORD=password
-                - N8N_HOST=${DOMAIN_NAME}
-                - N8N_PORT=${N8N_PORT}
-                - N8N_PROTOCOL=${N8N_PROTOCOL}
+                - N8N_HOST=${!DOMAIN_NAME}
+                - N8N_PORT=${!N8N_PORT}
+                - N8N_PROTOCOL=${!N8N_PROTOCOL}
                 - NODE_ENV=production
                 - N8N_BLOCK_NODES=
                 - N8N_BLOCK_FS_WRITE_ACCESS=false
                 - N8N_RESTRICT_FILE_ACCESS_TO=/home/node/files
-                - WEBHOOK_URL=http://${DOMAIN_NAME}:80/
-                - GENERIC_TIMEZONE=${GENERIC_TIMEZONE}
-                - TZ=${GENERIC_TIMEZONE}
+                - WEBHOOK_URL=http://${!DOMAIN_NAME}:5678/
+                - GENERIC_TIMEZONE=${!GENERIC_TIMEZONE}
+                - TZ=${!GENERIC_TIMEZONE}
                 - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=false
                 - N8N_SECURE_COOKIE=false
               volumes:
@@ -161,8 +206,8 @@ Resources:
           
           # Inicializar os containeres do n8n
           docker compose up -d
-          
-          # 4. Instalação e Configuração do CloudWatch Agent
+
+           # 4. Instalação e Configuração do CloudWatch Agent
           cd /tmp
           wget https://amazoncloudwatch-agent.s3.amazonaws.com/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
           sudo dpkg -i -E ./amazon-cloudwatch-agent.deb
@@ -216,9 +261,213 @@ Resources:
       SecurityGroupIds:
         - !Ref SecurityGroup
       ImageId: !Ref LatestAmiId
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: 30
+            VolumeType: gp3
+            DeleteOnTermination: true
       Tags:
         - Key: Name
           Value: arq-infra-ec2-private
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          set -euxo pipefail
+          exec > >(tee /var/log/primelead-userdata.log) 2>&1
+
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update -y
+          apt-get install -y docker.io docker-compose-v2 openssl
+
+          systemctl enable docker
+          systemctl start docker
+
+          until docker info >/dev/null 2>&1; do
+            sleep 2
+          done
+
+          usermod -aG docker ubuntu || true
+
+          mkdir -p /opt/primelead
+          cd /opt/primelead
+
+          if [ ! -f .env ]; then
+            umask 077
+            cat <<EOF > .env
+          MYSQL_ROOT_PASSWORD=$(openssl rand -hex 32)
+          DB_PASSWORD=$(openssl rand -hex 32)
+          EOF
+          fi
+
+          cat <<'EOF' > docker-compose.yml
+          services:
+            database:
+              image: ayrtoncasa/primelead_database:1.4
+              container_name: primelead_database
+              restart: unless-stopped
+              environment:
+                MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+                MYSQL_DATABASE: PrimeLeadAutomation
+                MYSQL_USER: primelead
+                MYSQL_PASSWORD: ${DB_PASSWORD}
+              volumes:
+                - primelead_database_data:/var/lib/mysql
+              healthcheck:
+                test: ["CMD-SHELL", "mysql -h 127.0.0.1 -u primelead -p\"$$MYSQL_PASSWORD\" PrimeLeadAutomation -e 'SELECT 1' >/dev/null 2>&1"]
+                interval: 10s
+                timeout: 5s
+                retries: 20
+                start_period: 60s
+              networks:
+                - primelead_network
+
+            backend:
+              image: ayrtoncasa/primelead-backend:1.0
+              container_name: primelead_backend
+              restart: unless-stopped
+              ports:
+                - "8081:8081"
+              environment:
+                SPRING_DATASOURCE_URL: jdbc:mysql://database:3306/PrimeLeadAutomation
+                SPRING_DATASOURCE_USERNAME: primelead
+                SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+              depends_on:
+                database:
+                  condition: service_healthy
+              networks:
+                - primelead_network
+
+          networks:
+            primelead_network:
+              driver: bridge
+
+          volumes:
+            primelead_database_data:
+          EOF
+
+          docker compose pull
+          docker compose up -d
+
+  FrontendLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateData:
+        ImageId: !Ref LatestAmiId
+        InstanceType: t3.small
+        IamInstanceProfile:
+          Name: !Ref Ec2InstanceProfileName
+        SecurityGroupIds:
+          - !Ref FrontendSecurityGroup
+        BlockDeviceMappings:
+          - DeviceName: /dev/sda1
+            Ebs:
+              VolumeSize: 10
+              VolumeType: gp3
+              DeleteOnTermination: true
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: arq-infra-frontend
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            set -euxo pipefail
+            exec > >(tee /var/log/frontend-userdata.log) 2>&1
+
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update -y
+            apt-get install -y docker.io docker-compose-v2
+            systemctl enable --now docker
+
+            mkdir -p /opt/primelead-front
+            cd /opt/primelead-front
+            cat <<'EOF' > docker-compose.yml
+            services:
+              frontend:
+                image: ${FrontendImage}
+                container_name: primelead_front
+                restart: unless-stopped
+                ports:
+                  - "80:80"
+                environment:
+                  BACKEND_URL: http://${PrivateInstance.PrivateIp}:8081
+            EOF
+
+            docker compose pull
+            docker compose up -d
+
+  FrontendTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Port: 80
+      Protocol: HTTP
+      TargetType: instance
+      VpcId: !ImportValue VpcId
+      HealthCheckEnabled: true
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+      Matcher:
+        HttpCode: 200-399
+
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: arq-infra-frontend-alb
+      Scheme: internet-facing
+      Type: application
+      IpAddressType: ipv4
+      SecurityGroups:
+        - !Ref LoadBalancerSecurityGroup
+      Subnets:
+        - !ImportValue PublicSubnetId
+        - !ImportValue PublicSubnet2Id
+
+  ApplicationLoadBalancerListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref FrontendTargetGroup
+
+  FrontendAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      MinSize: '1'
+      DesiredCapacity: '1'
+      MaxSize: '2'
+      HealthCheckType: ELB
+      HealthCheckGracePeriod: 180
+      VPCZoneIdentifier:
+        - !ImportValue PrivateSubnetId
+        - !ImportValue PrivateSubnet2Id
+      LaunchTemplate:
+        LaunchTemplateId: !Ref FrontendLaunchTemplate
+        Version: !GetAtt FrontendLaunchTemplate.LatestVersionNumber
+      TargetGroupARNs:
+        - !Ref FrontendTargetGroup
+      Tags:
+        - Key: Name
+          Value: arq-infra-frontend
+          PropagateAtLaunch: true
+
+  FrontendScalingPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName: !Ref FrontendAutoScalingGroup
+      PolicyType: TargetTrackingScaling
+      TargetTrackingConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ASGAverageCPUUtilization
+        TargetValue: 60.0
 
 
 Outputs:
@@ -233,3 +482,24 @@ Outputs:
 
   PrivateInstanceId:
     Value: !Ref PrivateInstance
+
+  FrontendLoadBalancerDnsName:
+    Description: DNS publico usado para acessar o frontend pelo ALB.
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
+    Export:
+      Name: FrontendLoadBalancerDnsName
+
+  FrontendLoadBalancerFullName:
+    Value: !GetAtt ApplicationLoadBalancer.LoadBalancerFullName
+    Export:
+      Name: FrontendLoadBalancerFullName
+
+  FrontendTargetGroupFullName:
+    Value: !GetAtt FrontendTargetGroup.TargetGroupFullName
+    Export:
+      Name: FrontendTargetGroupFullName
+
+  FrontendAutoScalingGroupName:
+    Value: !Ref FrontendAutoScalingGroup
+    Export:
+      Name: FrontendAutoScalingGroupName
