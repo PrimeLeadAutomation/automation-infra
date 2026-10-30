@@ -74,6 +74,21 @@ Resources:
       ToPort: 8081
       SourceSecurityGroupId: !Ref FrontendSecurityGroup
 
+  PrivateSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Acesso interno da VPC ao backend (SSH e API)
+      VpcId: !ImportValue VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 10.0.0.0/24
+        - IpProtocol: tcp
+          FromPort: 8081
+          ToPort: 8081
+          CidrIp: 10.0.0.0/24
+
   PublicInstance:
     Type: AWS::EC2::Instance
     Properties:
@@ -259,7 +274,7 @@ Resources:
       KeyName: !Ref KeyName
       SubnetId: !ImportValue PrivateSubnetId
       SecurityGroupIds:
-        - !Ref SecurityGroup
+        - !Ref PrivateSecurityGroup
       ImageId: !Ref LatestAmiId
       BlockDeviceMappings:
         - DeviceName: /dev/sda1

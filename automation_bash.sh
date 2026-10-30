@@ -16,7 +16,9 @@ aws cloudformation wait stack-create-complete --stack-name message-stack
 aws cloudformation create-stack \
   --stack-name compute-stack \
   --template-body file://computing/compute_automation.yaml \
-  --parameters ParameterKey=KeyName,ParameterValue=myssh
+  --parameters ParameterKey=KeyName,ParameterValue=myssh \
+    ParameterKey=GitHubToken,ParameterValue="${GITHUB_TOKEN:?defina GITHUB_TOKEN}" \
+    ParameterKey=DbPassword,ParameterValue="${DB_PASSWORD:?defina DB_PASSWORD}"
 aws cloudformation wait stack-create-complete --stack-name compute-stack
 
 aws cloudformation create-stack \
